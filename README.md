@@ -42,10 +42,10 @@ The experiment can be started, by executing:
 
 #### Analysis of LLM-based vulnerability discovery through the lens of code metrics
 Given the high interpretability of the considered code metrics, we use them as a tool to gain a insights into the decision process of LLM-based vulnerability discovery approaches in our last experiment. Specifically, we conduct four tests:
-1. **Information access.** We check whether the embeddings created by the language models that are used as inputs to the succeeding classification heads contain information about the code metrics.
-2. **Information correlation.** We assess whether the decision with the vulnerability discovery models correlates with the code metric values.
-3. **Information dependence.** We further turn to an investigation of joint changes in code metrics and prediction probability as a strong indicator for causality.
-4. **Cross information.** Lastly, explicitly augmenting the language model based classifiers with the code metric features tests whether any information orthogonal to code metrics are being used.
+1. _Information access._ We check whether the embeddings created by the language models that are used as inputs to the succeeding classification heads contain information about the code metrics.
+2. _Information correlation._ We assess whether the decision with the vulnerability discovery models correlates with the code metric values.
+3. _Information dependence._ We further turn to an investigation of joint changes in code metrics and prediction probability as a strong indicator for causality.
+4. _Cross information._ Lastly, explicitly augmenting the language model based classifiers with the code metric features tests whether any information orthogonal to code metrics are being used.
 This experiment is located in the `scripts/causal_analysis` directory.
 
 To run the experiment, execute:
