@@ -1,0 +1,27 @@
+## PROJECT DIRECTORIES
+data
+workspace
+lib
+
+## PYTHON STUFF
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+*.egg-info/
+*.egg
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/

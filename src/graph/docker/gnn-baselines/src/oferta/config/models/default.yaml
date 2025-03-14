@@ -1,0 +1,8 @@
+defaults:
+  - w2v: default.yaml
+  - simple: default.yaml
+  - linear_mcpp: default.yaml
+  - devign: default.yaml
+  - reveal: default.yaml
+  - codet5: default.yaml
+  - unixcoder: default.yaml

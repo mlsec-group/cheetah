@@ -1,0 +1,19 @@
+input_dim: ${models.w2v.vector_size}
+mcpp_features:
+  - C1
+  - C2
+  - C3
+  - C4
+  - V1
+  - V2
+  - V3
+  - V4
+  - V5
+  - V6
+  - V7
+  - V8
+  - V9
+  - V10
+  - V11
+hidden_dim: 128
+dropout: 0.3

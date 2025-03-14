@@ -1,0 +1,6 @@
+.venv
+.vscode
+data
+lightning_logs
+tb_logs
+workspace

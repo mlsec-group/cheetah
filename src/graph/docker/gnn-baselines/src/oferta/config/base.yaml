@@ -1,0 +1,62 @@
+defaults:
+  - _self_
+  - base_config
+  - dataset: primevul.yaml
+  - models: default.yaml
+  - cmd: default.yaml
+
+
+paths:
+  data_root: /gnn-baselines/data/${dataset.name}
+  raw: ${paths.data_root}/raw
+  meta: ${paths.data_root}/meta
+  interim: ${paths.data_root}/interim
+  cpg: ${paths.data_root}/cpg
+  processed: ${paths.data_root}/processed
+  models: ${paths.data_root}/models
+  logs: ${paths.data_root}/logs
+  reports: ${paths.data_root}/reports
+  llm_cache: ${paths.data_root}/.llm_cache
+  repo_root: /gnn-baselines/data/diversevul-repos
+
+
+hparams:
+  lr: 1e-3
+  accumulated_batches: 8  # guessed
+  batch_size: 256  # guessed
+  weight_decay: 1e-5  # guessed
+  triplet_alpha: 0.5  # guessed
+  triplet_beta: 0.005  # guessed
+  triplet_gamma: 0.1  # guessed
+
+
+fixed_params:
+  max_epochs: 100
+  checkpoint_interval: 10
+  patience: 3
+  val_size: 0.1
+  test_size: 0.1
+  embed_model: ${cmd.train.w2v.model_path}
+
+
+hardware:
+  cores: 50
+
+
+experiment:
+  dataset_name: ${dataset.name}
+  model_name: devign
+  seed: 42
+  use_smote: False
+  use_triplet_loss: False
+  test_predictions_path: ${paths.logs}/${experiment.dataset_name}-${experiment.model_name}-${now:%Y-%m-%d-%H-%M-%S}/test_predictions.csv
+
+
+tokenizer:
+  ignore_tokens: ["{", "}", "(", ")", "[", "]", "comment", ",", ";", ":"]
+
+# hydra-internal config. must not appear in schema!
+hydra:
+  run:
+    dir: ${paths.logs}/${dataset.name}-${now:%Y-%m-%d-%H-%M-%S}
+  output_subdir: null

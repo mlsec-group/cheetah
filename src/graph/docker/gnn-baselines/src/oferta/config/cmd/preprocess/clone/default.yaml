@@ -1,0 +1,4 @@
+urls_csv: ${paths.meta}/urls.csv
+override_urls_csv: ${paths.meta}/override_urls.csv
+repo_root: ${paths.repo_root}
+report: ${paths.reports}/clone_report.json

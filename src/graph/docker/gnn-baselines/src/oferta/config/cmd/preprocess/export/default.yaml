@@ -1,0 +1,5 @@
+in_dir: ${paths.cpg}
+out_dir: ${paths.processed}
+report: ${paths.reports}/cpg-export.log
+n_jobs: ${hardware.cores}
+joern_bin: /opt/joern/joern-cli/joern

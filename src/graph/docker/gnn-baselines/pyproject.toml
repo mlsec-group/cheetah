@@ -1,0 +1,25 @@
+[project]
+name = "gnn_baselines"
+version = "0.0.1"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+
+[project.scripts]
+gnn-baselines = "gnn-baselines.cli:main"
+
+[tool.setuptools.package-data]
+gnn-baselines = ["preprocess/*.sc", "preprocess/joern_parse.sh"]
+
+[build-system]
+requires = ["setuptools >= 40.9.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+target-version = ["py311"]
+line-length = 120
+
+[tool.flake8]
+max-line-length = 120

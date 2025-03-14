@@ -1,0 +1,8 @@
+defaults:
+  - _self_
+  - extract: default.yaml
+  - parse: default.yaml
+  - export: default.yaml
+  - build_vocab: default.yaml
+  - meta: default.yaml
+  - clone: default.yaml

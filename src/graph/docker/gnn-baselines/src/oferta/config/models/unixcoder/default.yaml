@@ -1,0 +1,3 @@
+hidden_dim: 256
+dropout: 0.3
+llm_cache: ${paths.llm_cache}

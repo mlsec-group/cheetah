@@ -1,0 +1,43 @@
+## PROJECT DIRECTORIES
+docker/gnn-baselines/data
+docker/gnn-baselines/workspace
+docker/gnn-baselines/lib
+docker/gnn-baselines/tb_logs
+docker/gnn-baselines/lightning_logs
+docker/gnn-baselines/cheetah
+docker/gnn-baselines/experiments/results
+experiments/results
+
+# framework data directories
+lightning_logs
+slurm-logs
+tb_logs
+.vscode
+.devcontainer
+.github
+
+# Built apptainer container
+*.sif
+
+## PYTHON STUFF
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+*.egg-info/
+*.egg
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/

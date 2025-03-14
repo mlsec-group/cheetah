@@ -1,0 +1,6 @@
+mode: predefined
+dataset_cfg: ${dataset}
+val_size: ${fixed_params.val_size}
+test_size: ${fixed_params.test_size}
+seed: ${experiment.seed}
+out_file: ${paths.meta}/split.pt

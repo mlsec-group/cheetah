@@ -1,0 +1,3 @@
+hidden_dim: 256  # guessed
+dropout: 0.3  # guessed
+llm_cache: ${paths.llm_cache}

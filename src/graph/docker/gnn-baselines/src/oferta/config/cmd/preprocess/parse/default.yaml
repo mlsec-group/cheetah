@@ -1,0 +1,4 @@
+in_dir: ${paths.interim}
+out_dir: ${paths.cpg}
+report: ${paths.reports}/cpg-parser.json
+n_jobs: ${hardware.cores}
