@@ -19,7 +19,7 @@ To setup the environment and conduct all experiments from the paper, run:
 ```
 
 ## Dataset
-We resort to [PrimeVul](https://doi.ieeecomputersociety.org/10.1109/ICSE55347.2025.00038) as a basis to conduct our experiments on. Prior to executing any of the experiments individually, make sure that you downloaded the PrimeVul dataset and placed it in the `data/raw` directory. If you followed the [Quick start](#quick-start) section, this step is not necessary as the dataset was already downloaded automatically in this case.
+We resort to [PrimeVul](https://doi.ieeecomputersociety.org/10.1109/ICSE55347.2025.00038) as a basis for our experiments. Prior to executing any of the experiments individually, make sure that you downloaded the PrimeVul dataset and placed it in the `data/raw` directory. If you followed the [Quick start](#quick-start) section, this step is not necessary as the dataset was already downloaded automatically in this case.
 
 ## Experiments
 We conduct three experiments in our paper: A comparative assessment of vulnerability discovery approaches, a performance analysis of code metrics for vulnerability discovery, and an analysis of LLM-based discovery approaches through the lens of code metrics. Each of these experiments aligns with one sub-directory in the `scripts` directory. Before conducting any of the experiments, make sure that the environment was setup by creating the apptainer container through `./scripts/build.sh` and that the PrimeVul dataset is downloaded and preprocessed (see [Dataset](#dataset)).
