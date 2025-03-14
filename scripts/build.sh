@@ -1,0 +1,3 @@
+#!/bin/bash
+
+apptainer build container.sif container.def
