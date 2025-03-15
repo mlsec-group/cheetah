@@ -1,3 +1,3 @@
 #!/bin/bash
 
-# TODO
+python3 src/dataset/dataset.py -d data/raw
