@@ -9,7 +9,7 @@ fi
 
 tag=$1
 DATA_ROOT=$HOME/cheetah/data/primevul
-SLURM_LOGS_PATH=$HOME/underground/slurm-logs/$tag
+SLURM_LOGS_PATH=$HOME/gnn-baselines/slurm-logs/$tag
 OUT_PATH=$HOME/cheetah/out/$tag
 
 rm -rf $OUT_PATH
