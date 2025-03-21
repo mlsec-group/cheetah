@@ -1,10 +1,14 @@
 Bootstrap: docker
-From: debian:bookworm
+From: python:3.12
 
 %post
-  apt-get update
-  apt-get install -y python3 python3-pip python3-venv
-  pip3 install --break-system-packages \
-    click \
-    datasets \
-    transformers
+    pip install numpy
+    pip install click
+    pip install torch==2.4.1
+    pip install torch-geometric
+    pip install transformers[torch]
+    pip install datasets
+    pip install tensorboard
+    pip install matplotlib scikit-learn
+    pip install git+https://github.com/MNayer/mcpp.git
+    pip install libclang==12.0.0
