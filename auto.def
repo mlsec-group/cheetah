@@ -1,0 +1,9 @@
+Bootstrap: docker
+From: python:3.9
+
+%post
+    pip install numpy==1.26.4
+    pip install scikit-learn
+    pip install auto-sklearn
+    pip install datasets
+    pip install tqdm
