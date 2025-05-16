@@ -1,3 +1,3 @@
 #!/bin/bash
 
-python3 src/dataset/dataset.py -d data/raw
+apptainer run container.sif python3 src/dataset/dataset.py -d data

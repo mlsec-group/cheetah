@@ -4,23 +4,28 @@ from pathlib import Path
 from datasets import Dataset, DatasetDict
 
 
+def load_data(fpath):
+    samples = [
+        json.loads(line) for line in fpath.read_text().split("\n") if len(line) > 1
+    ]
+    return [
+        {"texts": function["func"], "labels": function["target"]} for function in samples
+    ]
+
+
 @click.command()
 @click.option("--data", "-d", required=True, type=click.Path(dir_okay=True, file_okay=False, path_type=Path), help="Dataset directory.")
 def create_hf_dataset(data):
-    output_path = data.parent / "hf_full"
+    raw_path = data / "raw"
+    output_path = data / "hf"
     output_path.mkdir(parents=True, exist_ok=True)
 
-    train_path = data / "train.jsonl"
-    val_path = data / "val.jsonl"
-    test_path = data / "test.jsonl"
-    train_ds = [json.loads(line) for line in train_path.read_text().split("\n") if len(line) > 1]
-    val_ds = [json.loads(line) for line in val_path.read_text().split("\n") if len(line) > 1]
-    test_ds = [json.loads(line) for line in test_path.read_text().split("\n") if len(line) > 1]
-
-
-    train_data = [{"texts": function["func"], "labels": function["target"]} for function in train_ds]
-    val_data = [{"texts": function["func"], "labels": function["target"]} for function in val_ds]
-    test_data = [{"texts": function["func"], "labels": function["target"]} for function in test_ds]
+    train_path = raw_path / "primevul_train.jsonl"
+    val_path = raw_path / "primevul_valid.jsonl"
+    test_path = raw_path / "primevul_test.jsonl"
+    train_data = load_data(train_path)
+    val_data = load_data(val_path)
+    test_data = load_data(test_path)
 
     # Convert lists of dictionaries to Hugging Face Dataset objects
     train_dataset = Dataset.from_list(train_data)
@@ -35,7 +40,6 @@ def create_hf_dataset(data):
     })
 
     hf_dataset.save_to_disk(output_path)
-
 
 
 if __name__ == "__main__":
