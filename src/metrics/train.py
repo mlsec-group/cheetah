@@ -1,94 +1,33 @@
-import os
-import argparse
+import click
 import pickle
 import numpy as np
 import autosklearn.metrics
 from autosklearn.classification import AutoSklearnClassifier as Classifier
-from sklearn.feature_selection import SelectKBest, chi2
 from pathlib import Path
 from datasets import load_from_disk
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
     f1_score, precision_score, recall_score, roc_auc_score, average_precision_score,
-    matthews_corrcoef, balanced_accuracy_score, roc_curve
+    matthews_corrcoef, balanced_accuracy_score,
 )
 
-
-TOTAL_TIME = 10*60
-N_JOBS = 4
-
-# Best code metrics selected using the mRMR method
-BEST = ["C11", "T2", "M3", "C4", "S4", "C9", "C2", "C7", "M2", "C12", "C8", "T1", "C3", "C5", "C10", "M1", "C1", "T3", "S5", "C6", "S1", "S2", "S3"]
-
-def calculate_vul_det_score(ground_truth, predictions, target_fpr=0.005):
-    # stolen from: https://github.com/DLVulDet/PrimeVul/blob/6f54687c84947b1d17486495440b37030d147289/calc_vd_score.py#L6C1-L43C33
-    """
-    Calculate the vulnerability detection score (VD-S) given a tolerable FPR.
-
-    Args:
-    - predictions: List of model prediction probabilities for the positive class.
-    - ground_truth: List of ground truth labels, where 1 means vulnerable class, and 0 means benign class.
-    - target_fpr: The tolerable false positive rate.
-
-    Returns:
-    - vds: Calculated vulnerability detection score given the acceptable .
-    - threshold: The classification threashold for vulnerable prediction.
-    """
-
-    # Calculate FPR, TPR, and thresholds using ROC curve
-    fpr, tpr, thresholds = roc_curve(ground_truth, predictions, drop_intermediate=False)
-
-    # Filter thresholds where FPR is less than or equal to the target FPR
-    valid_indices = np.where(fpr <= target_fpr)[0]
-
-    # Choose the threshold with the largest FPR that is still below the target FPR, if possible
-    if len(valid_indices) > 0:
-        idx = valid_indices[-1]  # Last index where FPR is below or equal to target FPR
-    else:
-        # If no such threshold exists (unlikely), default to the closest to the target FPR
-        idx = np.abs(fpr - target_fpr).argmin()
-
-    chosen_threshold = thresholds[idx]
-
-    # Classify predictions based on the chosen threshold
-    classified_preds = [1 if pred >= chosen_threshold else 0 for pred in predictions]
-
-    # Calculate VD-S
-    fn = sum([1 for i in range(len(ground_truth)) if ground_truth[i] == 1 and classified_preds[i] == 0])
-    tp = sum([1 for i in range(len(ground_truth)) if ground_truth[i] == 1 and classified_preds[i] == 1])
-    vds = fn / (fn + tp) if (fn + tp) > 0 else 0
-
-    return vds
+from config import TOTAL_TIME, N_JOBS, BEST_MRMR as BEST
+from util import calculate_vul_det_score, best_threshold
 
 
-def best_threshold(metric, labels, scores):
-    thresholds = np.linspace(0, 1, 500)
-    results = []
-    for t in thresholds:
-        try:
-            results.append(metric(labels, scores > t))
-        except:
-            pass
-    return thresholds[max(range(len(results)), key=results.__getitem__)]
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("data_dir")
-    parser.add_argument("job_id")
-    args = parser.parse_args()
-
-    job_id = int(args.job_id)
+@click.command()
+@click.option("--data-dir", required=True, type=click.Path(dir_okay=True, file_okay=False, exists=True, path_type=Path))
+@click.option("--job-id", required=True, type=int)
+def main(data_dir, job_id):
     num_metrics = (job_id % 23) + 1
-    repitition = job_id // 23
 
     # Output directory
-    output_dir = Path(args.data_dir).parent / "autosklearn-model" / str(num_metrics) / str(job_id)
+    output_dir = data_dir.parent / "autosklearn-model" / str(num_metrics) / str(job_id)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Load data
-    datasets = load_from_disk(args.data_dir)
+    datasets = load_from_disk(data_dir)
     train_features = np.array([datasets["train"][k] for k in BEST[:num_metrics]]).T
     val_features = np.array([datasets["val"][k] for k in BEST[:num_metrics]]).T
     test_features = np.array([datasets["test"][k] for k in BEST[:num_metrics]]).T
@@ -149,3 +88,5 @@ if __name__ == "__main__":
     model_fpath = output_dir / "trained_model.pkl"
     model_fpath.write_bytes(pickle.dumps(automl))
 
+if __name__ == "__main__":
+    main()
