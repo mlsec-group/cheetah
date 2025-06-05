@@ -1,5 +1,5 @@
 *.sif
-data/
+assets/
 /sast/
 
 # Byte-compiled / optimized / DLL files
