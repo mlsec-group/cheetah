@@ -26,7 +26,7 @@ def main(data_dir, job_id):
     relevant_metrics = [BEST[i] for i in range(len(BEST)) if i != metric_no]
 
     # Output directory
-    output_dir = data_dir.parent / "autosklearn-model-abo" / str(metric_no) / str(job_id)
+    output_dir = data_dir / "autosklearn-model-abo" / str(metric_no) / str(job_id)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Load data

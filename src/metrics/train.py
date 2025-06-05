@@ -26,7 +26,7 @@ def main(data_dir, metric_subset, job_id):
         num_metrics = (job_id % 23) + 1
 
     # Output directory
-    output_dir = data_dir.parent / "autosklearn-model" / str(num_metrics) / str(job_id)
+    output_dir = data_dir / "autosklearn-model" / str(num_metrics) / str(job_id)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Load data
