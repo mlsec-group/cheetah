@@ -28,6 +28,7 @@ if __name__ == "__main__":
 
     # in percentage points
     print("Difference in F1-Score between concatenation and only embedding (Percentage points!)")
+    print("UniXcoder, PDBert, LineVul, StarCoder 2, CodeGen 2.5")
     print(
         round(sum(t[1] - t[0] for t in unixcoder) / len(unixcoder) * 100, 2),
         round(sum(t[1] - t[0] for t in pdbert) / len(pdbert) * 100, 2),

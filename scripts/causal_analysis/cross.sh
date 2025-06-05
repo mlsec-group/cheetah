@@ -9,4 +9,5 @@ do
     apptainer run container.sif python3 src/llm/cross_information.py data/mcpp bigcode/starcoder2-7b $i
 done
 
+# collect results
 apptainer run container.sif python3 src/causal_analysis/cross.py

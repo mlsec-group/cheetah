@@ -117,6 +117,9 @@ if __name__ == "__main__":
     BIG_MODELS = ["StarCoder", "CodeGen"]
 
     all_results = {
+        # manually checked: early stopping produced better checkpoint for all models
+        # except big models, where the last checkpoint was always the best
+        # this was verified for all runs
         name: load_all(path, load_last=name in BIG_MODELS)
         for name, path in model_paths.items()
     }
