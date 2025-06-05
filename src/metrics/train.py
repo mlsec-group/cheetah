@@ -18,9 +18,12 @@ from util import calculate_vul_det_score, best_threshold
 
 @click.command()
 @click.option("--data-dir", required=True, type=click.Path(dir_okay=True, file_okay=False, exists=True, path_type=Path))
+@click.option("--metric-subset/--no-metric-subset", default=False)
 @click.option("--job-id", required=True, type=int)
-def main(data_dir, job_id):
-    num_metrics = (job_id % 23) + 1
+def main(data_dir, metric_subset, job_id):
+    num_metrics = len(BEST)
+    if metric_subset:
+        num_metrics = (job_id % 23) + 1
 
     # Output directory
     output_dir = data_dir.parent / "autosklearn-model" / str(num_metrics) / str(job_id)
