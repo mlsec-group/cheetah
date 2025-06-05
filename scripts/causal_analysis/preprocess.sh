@@ -9,6 +9,7 @@ do
     apptainer run container.sif python3 src/llm/add_predictions.py data/primevul data/pdbert $i
     apptainer run container.sif python3 src/llm/add_predictions.py data/primevul Salesforce/codegen25-7b-multi_P $i
     apptainer run container.sif python3 src/llm/add_predictions.py data/primevul bigcode/starcoder2-7b $i
+    ## TODO: add predictions for scm
 done
 
 for i in $(seq 1 10);
