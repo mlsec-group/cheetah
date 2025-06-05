@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Prepare the dataset
-./scripts/dataset/run.sh
+#./scripts/dataset/run.sh
 
 # Run the vulnerability discovery performance evaluation
 #./scripts/vulnerability_evaluation/run.sh

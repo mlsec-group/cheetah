@@ -8,7 +8,7 @@
 #SBATCH --output=data/output/underground-metrics/array_%A-%a.out
 #SBATCH --array=0-45
 
-pwd; hostname; date
+pwd; cat /etc/hostname; date
 
 source scripts/config.sh
 
