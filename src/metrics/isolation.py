@@ -1,6 +1,7 @@
 import click
 import pickle
 import numpy as np
+import json
 import autosklearn.metrics
 from autosklearn.classification import AutoSklearnClassifier as Classifier
 from pathlib import Path
@@ -74,11 +75,11 @@ def main(data_dir, job_id):
         "Rec": recall_score(test_labels, predictions),
     }
 
-    print(f"RESULT-METRICS {' '.join(BEST)}")
-    for metric, score in metrics.items():
-        print(f"RESULT-{metric} {metric_no} {score}")
-
     # Save model
     model_fpath = output_dir / "trained_model.pkl"
     model_fpath.write_bytes(pickle.dumps(automl))
+
+    # Save predictions
+    result_fpath = output_dir / "predictions.json"
+    result_fpath.write_text(json.dumps(metrics, indent=2))
 
