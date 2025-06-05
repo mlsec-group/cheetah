@@ -3,9 +3,6 @@ import argparse
 
 import torch
 import torch.nn.functional as F
-# import wandb
-# wandb.login()
-
 
 from typing import Optional, Union, Tuple, List
 
@@ -13,15 +10,14 @@ from datasets import load_from_disk
 
 from transformers import DataCollatorWithPadding
 from transformers import TrainingArguments, Trainer
-from transformers import AutoTokenizer, LlamaForSequenceClassification
+from transformers import AutoTokenizer, Starcoder2ForSequenceClassification
 from transformers.cache_utils import Cache
 from transformers.modeling_outputs import SequenceClassifierOutputWithPast
-from liger_kernel.transformers import apply_liger_kernel_to_llama
 
 from sklearn.metrics import matthews_corrcoef, accuracy_score, f1_score, balanced_accuracy_score
 
 
-class Classifier(LlamaForSequenceClassification):
+class Classifier(Starcoder2ForSequenceClassification):
     def __init__(self, config):
         config.num_labels = 1
         self.pos_weight = 1
@@ -127,18 +123,16 @@ if __name__ == "__main__":
     parser.add_argument("uid", default=None)
     args = parser.parse_args()
 
-    apply_liger_kernel_to_llama()
-
-    tokenizer = AutoTokenizer.from_pretrained("Salesforce/codegen25-7b-multi_P", trust_remote_code=True, revision="c936d25f73e74984748a5ba39151b6bc7a056e2e")
-    model = Classifier.from_pretrained("Salesforce/codegen25-7b-multi_P", device_map="auto", torch_dtype=torch.bfloat16)
+    tokenizer = AutoTokenizer.from_pretrained("bigcode/starcoder2-7b")
+    model = Classifier.from_pretrained("bigcode/starcoder2-7b", device_map="auto", torch_dtype=torch.bfloat16)
 
     dataset = load_from_disk(args.dataset_dir)
 
-    final_model_path = os.path.join("hf-model", "Salesforce/codegen25-7b-multi_P".replace("/", "__"))
-    tensorboard_path = os.path.join("tb_logs", "Salesforce/codegen25-7b-multi_P".replace("/", "__"))
-    # find uid
+    final_model_path = os.path.join("hf-model", "bigcode/starcoder2-7b".replace("/", "__"))
+    tensorboard_path = os.path.join("tb_logs", "bigcode/starcoder2-7b".replace("/", "__"))
     os.makedirs(final_model_path, exist_ok=True)
-    
+
+    # find uid
     uid = 0
     if args.uid is not None:
         uid = args.uid
@@ -158,7 +152,7 @@ if __name__ == "__main__":
     print(f"Selecting {NUMBER_TRAIN_SAMPLES} of {len(dataset['train'])} samples for training")
     train_set = dataset["train"].shuffle(load_from_cache_file=False).select(range(NUMBER_TRAIN_SAMPLES))
     val_set = dataset["val"]
-    
+
     positives = torch.sum(torch.as_tensor(train_set["labels"]) == 1)
     total = len(train_set)
     pos_weight = (total - positives) / positives
@@ -167,8 +161,8 @@ if __name__ == "__main__":
     training_args = TrainingArguments(
         output_dir=final_model_path,
         num_train_epochs=4,
-        per_device_train_batch_size=8,
-        gradient_accumulation_steps=4*4,
+        per_device_train_batch_size=4,
+        gradient_accumulation_steps=4*4*2,
         per_device_eval_batch_size=8,
         warmup_steps=2000,
         weight_decay=0.01,
@@ -183,7 +177,7 @@ if __name__ == "__main__":
         save_total_limit=2,
         eval_strategy="steps",
         log_level="info",
-        report_to=["tensorboard", "wandb"],
+        report_to=["tensorboard"],
         seed=1337,
     )
 
@@ -196,4 +190,8 @@ if __name__ == "__main__":
         compute_metrics=compute_metrics,
     )
 
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+    model.config.pad_token_id = tokenizer.pad_token_id
+    model.config.pad_token = tokenizer.pad_token
     trainer.train()
