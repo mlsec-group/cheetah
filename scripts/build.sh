@@ -1,7 +1,7 @@
 #!/bin/bash
 
 source scripts/config.sh
-
+set -e 
 if [ ! -z ${apptainer_cachedir:-} ]; then
   mkdir -p ${apptainer_cachedir}
   export APPTAINER_CACHEDIR=${apptainer_cachedir}
@@ -11,9 +11,9 @@ fi
 # Build containers
 apptainer build container.sif container.def
 apptainer build auto.sif auto.def
-#
+# #
 ## Download dependencies
-git clone git@github.com:MNayer/sast.git
+git clone https://github.com/MNayer/sast.git
 pushd sast/cppcheck &> /dev/null
 ./build.sh
 popd

@@ -44,7 +44,19 @@ def calculate_cppcheck_score(fpath):
 
 
 def calculate_semgrep_scores(fpath):
-    data = json.loads(fpath.read_text())
+    print(fpath)
+    content = fpath.read_text()
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError as e:
+        print(f"Warning: JSON parsing failed at position {e.pos}, attempting to parse valid portion...")
+        valid_content = content[:e.pos].rstrip()
+        last_brace = valid_content.rfind('}')
+        if last_brace != -1:
+            valid_content = valid_content[:last_brace + 1]
+            data = json.loads(valid_content)
+        else:
+            raise e
 
     scores = defaultdict(lambda: -1.0)
     severities = set()
@@ -66,7 +78,6 @@ def calculate_semgrep_scores(fpath):
             scores[idx] += 3.0
 
     return scores
-
 
 @click.command()
 @click.option("--data", "-d", required=True, type=click.Path(file_okay=False, dir_okay=True, exists=True, path_type=Path), help="sast/ directory.")
