@@ -1,11 +1,11 @@
 #!/bin/sh
-#SBATCH --job-name=underground-metrics
+#SBATCH --job-name=cheetah-metrics
 #SBATCH --partition=cpu-2h
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu=4gb
 #SBATCH --cpus-per-task=4
-#SBATCH --output=data/output/underground-metrics/array_%A-%a.out
+#SBATCH --output=data/output/cheetah-metrics/array_%A-%a.out
 #SBATCH --array=0-9
 
 set -e

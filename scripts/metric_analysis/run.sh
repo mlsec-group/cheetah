@@ -4,8 +4,8 @@ source scripts/config.sh
 
 set -e
 
-# ./scripts/metric_analysis/calculate.sh
-# ./scripts/metric_analysis/train.sh
+./scripts/metric_analysis/calculate.sh
+./scripts/metric_analysis/train.sh
 
 #if [ ${slurm:=0} -eq 1 ]; then
 #  sbatch --wait scripts/metric_analysis/train.sh

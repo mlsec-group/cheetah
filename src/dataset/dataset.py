@@ -15,7 +15,9 @@ def load_data(fpath):
 
 @click.command()
 @click.option("--data", "-d", required=True, type=click.Path(dir_okay=True, file_okay=False, path_type=Path), help="Dataset directory.")
-def create_hf_dataset(data):
+@click.option("--dataset-name", required=True, type=str, help="Dataset name.")
+def create_hf_dataset(data, dataset_name):
+    data = data / dataset_name
     raw_path = data / "raw"
     output_path = data / "hf"
     output_path.mkdir(parents=True, exist_ok=True)

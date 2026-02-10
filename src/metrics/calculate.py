@@ -88,7 +88,7 @@ def main(data_dir, dataset_name, base_model, truncate, num_cpus):
         })
 
         hf_dataset.save_to_disk(output_path)
-    dataset = load_from_disk(data_dir / f"{dataset_name}.hf")
+    dataset = load_from_disk(data_dir / dataset_name / "hf")
 
     truncation_kwargs = {"truncation": False}
     if truncate:

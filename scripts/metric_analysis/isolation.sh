@@ -1,11 +1,11 @@
 #!/bin/sh
-#SBATCH --job-name=underground-metrics-sf
+#SBATCH --job-name=cheetah-metrics-sf
 #SBATCH --partition=cpu-2h
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu=4gb
 #SBATCH --cpus-per-task=4
-#SBATCH --output=data/output/underground-metrics-sf/array_%A-%a.out
+#SBATCH --output=data/output/cheetah-metrics-sf/array_%A-%a.out
 #SBATCH --array=0-45
 
 pwd; cat /etc/hostname; date
