@@ -2,6 +2,10 @@ import click
 import os
 import sys
 from pathlib import Path
+import threading
+import signal
+from contextlib import contextmanager
+import time
 
 # Add src directory to Python path for imports
 sys.path.append(str(Path(__file__).parent.parent))
@@ -15,12 +19,29 @@ sys.setrecursionlimit(25_000)
 
 CHOICES = ["primevul", "primevul-xs", "diversevul-projects", "diversevul-random", "diversevul-xs"]
 
+
+@contextmanager
+def kill_after(t):
+  def raise_timeout_handler(signum, frame):
+    raise TimeoutError
+  
+  orig_handler = signal.getsignal(signal.SIGALRM)
+  signal.signal(signal.SIGALRM, raise_timeout_handler)
+  try:
+    signal.alarm(t)
+    yield
+  finally:
+    signal.alarm(0)
+    signal.signal(signal.SIGALRM, orig_handler)
+
+
 @click.command()
 @click.option("--data-dir", required=True, type=click.Path(dir_okay=True, file_okay=False, path_type=Path))
 @click.option("--dataset-name", required=True, type=click.Choice(CHOICES))
 @click.option("--base_model", default=None)
-@click.option("--num-cpus", default=8, type=int)
-def main(data_dir, dataset_name, base_model, num_cpus):
+@click.option("--truncate/--no-truncate", default=True)
+@click.option("--num-cpus", default=256, type=int)
+def main(data_dir, dataset_name, base_model, truncate, num_cpus):
     tokenizer = None
     if base_model is not None:
         if base_model == "Salesforce/codegen25-7b-multi_P":
@@ -67,16 +88,26 @@ def main(data_dir, dataset_name, base_model, num_cpus):
         })
 
         hf_dataset.save_to_disk(output_path)
-    dataset = load_from_disk(data_dir / dataset_name / "hf")
+    dataset = load_from_disk(data_dir / f"{dataset_name}.hf")
 
+    truncation_kwargs = {"truncation": False}
+    if truncate:
+        truncation_kwargs = {
+            "truncation": True,
+            "max_length": model_max_length,
+        }
+    timeout = 30
     def add_features(sample):
+        result = {k: 0 for k in METRICS.keys()}
         try:
-            text = sample["texts"]
-            if tokenizer is not None:
-                text = tokenizer.decode(tokenizer(text, truncation=True, max_length=model_max_length).input_ids)
-            return extract_code(text)
+            with kill_after(timeout):
+                text = sample["text"]
+                if tokenizer is not None:
+                    text = tokenizer.decode(tokenizer(text, **truncation_kwargs).input_ids)
+                    result = extract_code(text)
         except:
-            return {k: 0 for k in METRICS.keys()}
+            pass
+        return result
 
     dataset = dataset.map(add_features, batched=False, num_proc=num_cpus, load_from_cache_file=False)
 

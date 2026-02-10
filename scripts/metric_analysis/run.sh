@@ -4,7 +4,8 @@ source scripts/config.sh
 
 set -e
 
-./scripts/metric_analysis/calculate.sh
+# ./scripts/metric_analysis/calculate.sh
+# ./scripts/metric_analysis/train.sh
 
 #if [ ${slurm:=0} -eq 1 ]; then
 #  sbatch --wait scripts/metric_analysis/train.sh
@@ -16,4 +17,4 @@ set -e
 #  ./scripts/metric_analysis/leaveoneout.sh
 #fi
 #
-#python3 src/metrics/eval.py --data-dir ${data_dir}
+python3 src/metrics/eval.py --data-dir ${data_dir}

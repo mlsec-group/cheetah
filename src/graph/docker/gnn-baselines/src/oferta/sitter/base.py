@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from tree_sitter import Language, Parser, Tree
-import tree_sitter_c as ts_c
+from tree_sitter_languages import get_language
 
 
 Q_FUNCTION_DEF = """(
@@ -17,7 +17,7 @@ Q_FUNCTION_NAME = """
 
 class TreeSitter(object):
     def __init__(self, lib_path: Path):
-        self.c_lang = Language(ts_c.language())
+        self.c_lang = get_language("c")
         self.parser = Parser(self.c_lang)
 
         self.q_function_def = self.c_lang.query(Q_FUNCTION_DEF)

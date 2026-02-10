@@ -13,7 +13,7 @@ from sklearn.metrics import (
     matthews_corrcoef, balanced_accuracy_score,
 )
 
-from config import TOTAL_TIME, N_JOBS, BEST_MRMR as BEST
+from config import TOTAL_TIME, N_JOBS, BEST_MRMR, PRIMEVUL as SELECTED_METRICS
 from util import calculate_vul_det_score, best_threshold
 
 
@@ -22,7 +22,7 @@ from util import calculate_vul_det_score, best_threshold
 @click.option("--metric-subset/--no-metric-subset", default=False)
 @click.option("--job-id", required=True, type=int)
 def main(data_dir, metric_subset, job_id):
-    num_metrics = len(BEST)
+    num_metrics = len(SELECTED_METRICS)
     if metric_subset:
         num_metrics = (job_id % 23) + 1
 
@@ -32,9 +32,9 @@ def main(data_dir, metric_subset, job_id):
 
     # Load data
     datasets = load_from_disk(data_dir)
-    train_features = np.array([datasets["train"][k] for k in BEST[:num_metrics]]).T
-    val_features = np.array([datasets["val"][k] for k in BEST[:num_metrics]]).T
-    test_features = np.array([datasets["test"][k] for k in BEST[:num_metrics]]).T
+    train_features = np.array([datasets["train"][k] for k in SELECTED_METRICS]).T
+    val_features = np.array([datasets["val"][k] for k in SELECTED_METRICS]).T
+    test_features = np.array([datasets["test"][k] for k in SELECTED_METRICS]).T
 
     train_labels = np.array(datasets["train"]["labels"])
     val_labels = np.array(datasets["val"]["labels"])
