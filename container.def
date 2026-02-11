@@ -14,4 +14,4 @@ From: python:3.12
     pip install tensorboard
     pip install matplotlib scikit-learn
     pip install libclang==12.0.0
-    cd /mcpp && pip install -e .
+    pip install mcpp
