@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source scripts/config.sh
+. scripts/config.sh
 
 set -e
 
