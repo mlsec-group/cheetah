@@ -4,7 +4,7 @@
 #SBATCH --output=logs/calculate/%j.out
 #SBATCH --error=logs/calculate/%j.err
 #SBATCH --mem=200G
-#SBATCH --partition=cpu-5h
+#SBATCH --partition=cpu-2d
 
 . scripts/config.sh
 

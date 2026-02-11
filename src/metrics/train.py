@@ -25,7 +25,7 @@ def main(data_dir, metric_subset, job_id):
     num_metrics = len(SELECTED_METRICS)
     if metric_subset:
         num_metrics = (job_id % num_metrics) + 1
-    SELECTED_METRICS = SELECTED_METRICS[:num_metrics]
+    selected_metrics = SELECTED_METRICS[:num_metrics]
 
     # Output directory
     output_dir = data_dir / "autosklearn-model" / str(num_metrics) / str(job_id)
@@ -33,14 +33,14 @@ def main(data_dir, metric_subset, job_id):
 
     # Load data
     datasets = load_from_disk(data_dir)
-    train_features = np.array([datasets["train"][k] for k in SELECTED_METRICS]).T
-    val_features = np.array([datasets["val"][k] for k in SELECTED_METRICS]).T
-    test_features = np.array([datasets["test"][k] for k in SELECTED_METRICS]).T
+    train_features = np.array([datasets["train"][k] for k in selected_metrics]).T
+    val_features = np.array([datasets["val"][k] for k in selected_metrics]).T
+    test_features = np.array([datasets["test"][k] for k in selected_metrics]).T
 
     print(f"train_features.shape: {train_features.shape}")
     print(f"val_features.shape: {val_features.shape}")
     print(f"test_features.shape: {test_features.shape}")
-    print(f"SELECTED_METRICS: {SELECTED_METRICS}")
+    print(f"selected_metrics: {selected_metrics}")
 
     train_labels = np.array(datasets["train"]["labels"])
     val_labels = np.array(datasets["val"]["labels"])
@@ -60,7 +60,7 @@ def main(data_dir, metric_subset, job_id):
     train_scaled = scaler.transform(train_features)
     val_scaled = scaler.transform(val_features)
     test_scaled = scaler.transform(test_features)
-    
+
     # Non-exhaustive cross validation
     selected_indices = np.random.choice(np.arange(len(train_scaled)), int(len(train_scaled) * 0.9))
     train_scaled = train_scaled[selected_indices]
