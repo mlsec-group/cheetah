@@ -19,6 +19,32 @@ sys.setrecursionlimit(25_000)
 
 CHOICES = ["primevul", "primevul-xs", "diversevul-projects", "diversevul-random", "diversevul-xs"]
 
+# The metrics as described in Table 4 in the paper and their aliases in mcpp
+METRICS_ALIASES = {
+    "S1": "s1",
+    "S2": "s2",
+    "S3": "s3",
+    "S4": "s4",
+    "S5": "V10",
+    "C1": "C1",
+    "C2": "C2",
+    "C3": "C3",
+    "C4": "C4",
+    "C5": "V1",
+    "C6": "V6",
+    "C7": "V7",
+    "C8": "V8",
+    "C9": "x1",
+    "C10": "x2",
+    "C11": "x3",
+    "C12": "x4",
+    "M1": "m1",
+    "M2": "m2",
+    "M3": "V5",
+    "T1": "t1",
+    "T2": "t2",
+    "T3": "t3",
+}
 
 @contextmanager
 def kill_after(t):
@@ -98,13 +124,14 @@ def main(data_dir, dataset_name, base_model, truncate, num_cpus):
         }
     timeout = 30
     def add_features(sample):
-        result = {k: 0 for k in METRICS.keys()}
+        result = {k: 0 for k in METRICS_ALIASES.keys()}
         try:
             with kill_after(timeout):
                 text = sample["text"]
                 if tokenizer is not None:
                     text = tokenizer.decode(tokenizer(text, **truncation_kwargs).input_ids)
                     result = extract_code(text)
+                    result = {METRICS_ALIASES[k]: v for k, v in result.items()}
         except:
             pass
         return result

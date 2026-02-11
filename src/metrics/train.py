@@ -13,7 +13,7 @@ from sklearn.metrics import (
     matthews_corrcoef, balanced_accuracy_score,
 )
 
-from config import TOTAL_TIME, N_JOBS, BEST_MRMR, PRIMEVUL as SELECTED_METRICS
+from config import TOTAL_TIME, N_JOBS, MAX_NUM_METRICS, BEST_MRMR as SELECTED_METRICS
 from util import calculate_vul_det_score, best_threshold
 
 
@@ -24,7 +24,8 @@ from util import calculate_vul_det_score, best_threshold
 def main(data_dir, metric_subset, job_id):
     num_metrics = len(SELECTED_METRICS)
     if metric_subset:
-        num_metrics = (job_id % 23) + 1
+        num_metrics = (job_id % num_metrics) + 1
+    SELECTED_METRICS = SELECTED_METRICS[:num_metrics]
 
     # Output directory
     output_dir = data_dir / "autosklearn-model" / str(num_metrics) / str(job_id)
@@ -36,6 +37,11 @@ def main(data_dir, metric_subset, job_id):
     val_features = np.array([datasets["val"][k] for k in SELECTED_METRICS]).T
     test_features = np.array([datasets["test"][k] for k in SELECTED_METRICS]).T
 
+    print(f"train_features.shape: {train_features.shape}")
+    print(f"val_features.shape: {val_features.shape}")
+    print(f"test_features.shape: {test_features.shape}")
+    print(f"SELECTED_METRICS: {SELECTED_METRICS}")
+
     train_labels = np.array(datasets["train"]["labels"])
     val_labels = np.array(datasets["val"]["labels"])
     test_labels = np.array(datasets["test"]["labels"])
@@ -43,7 +49,7 @@ def main(data_dir, metric_subset, job_id):
     # Fix: auto-sklearn cannot produce good models for low dimensional inputs.
     # Adding random features fixed this at the expense of a slight overall
     # performance drop.
-    num_missing = 23 - num_metrics
+    num_missing = MAX_NUM_METRICS - num_metrics
     if num_missing > 0:
         train_features = np.concatenate([train_features, np.random.rand(train_features.shape[0], num_missing)], axis=1)
         val_features = np.concatenate([val_features, np.random.rand(val_features.shape[0], num_missing)], axis=1)
