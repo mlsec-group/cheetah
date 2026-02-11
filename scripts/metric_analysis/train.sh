@@ -14,6 +14,7 @@ pwd; cat /etc/hostname; date
 . scripts/config.sh
 
 if [ ${slurm:=0} -eq 1 ]; then
+  mkdir -p ${log_dir}/cheetah-metrics
   apptainer run auto.sif python3 src/metrics/train.py --data-dir ${data_dir}/${dataset}/mcpp-microsoft__unixcoder-base-nine --job-id ${SLURM_ARRAY_TASK_ID}
 else
   for job_id in 0 1 2 3 4 5 6 7 8 9; do
