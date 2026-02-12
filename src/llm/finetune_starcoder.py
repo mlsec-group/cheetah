@@ -1,6 +1,6 @@
 import os
-import argparse
 
+import click
 import torch
 import torch.nn.functional as F
 
@@ -117,26 +117,22 @@ def tokenize(sample, tokenizer, truncation_length):
     return tokenizer(sample["texts"], truncation=True, max_length=truncation_length)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("dataset_dir")
-    parser.add_argument("uid", default=None)
-    args = parser.parse_args()
-
+@click.command()
+@click.argument("dataset_dir")
+@click.argument("uid", default=None)
+def main(dataset_dir, uid):
     tokenizer = AutoTokenizer.from_pretrained("bigcode/starcoder2-7b")
     model = Classifier.from_pretrained("bigcode/starcoder2-7b", device_map="auto", torch_dtype=torch.bfloat16)
 
-    dataset = load_from_disk(args.dataset_dir)
+    dataset = load_from_disk(dataset_dir)
 
     final_model_path = os.path.join("hf-model", "bigcode/starcoder2-7b".replace("/", "__"))
     tensorboard_path = os.path.join("tb_logs", "bigcode/starcoder2-7b".replace("/", "__"))
     os.makedirs(final_model_path, exist_ok=True)
 
     # find uid
-    uid = 0
-    if args.uid is not None:
-        uid = args.uid
-    else:
+    if uid is None:
+        uid = 0
         while os.path.isdir(os.path.join(final_model_path, uid)) or os.path.isdir(os.path.join(tensorboard_path, uid)):
             uid += 1
     final_model_path = os.path.join(final_model_path, uid)
@@ -195,3 +191,7 @@ if __name__ == "__main__":
     model.config.pad_token_id = tokenizer.pad_token_id
     model.config.pad_token = tokenizer.pad_token
     trainer.train()
+
+
+if __name__ == "__main__":
+    main()

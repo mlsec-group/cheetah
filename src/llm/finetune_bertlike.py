@@ -1,12 +1,10 @@
 import os
 import math
-import argparse
+from typing import Optional, Union, Tuple
 
 import torch
 import torch.nn.functional as F
-
-from typing import Optional, Union, Tuple
-
+import click
 from datasets import load_from_disk
 
 from transformers import DataCollatorWithPadding
@@ -95,27 +93,23 @@ def tokenize(sample, tokenizer, truncation_length):
     return tokenizer(sample["texts"], truncation=True, max_length=truncation_length)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("dataset_dir")
-    parser.add_argument("base_model", default="microsoft/unixcoder-base-nine")
-    parser.add_argument("uid", default=None)
-    args = parser.parse_args()
+@click.command()
+@click.argument("dataset_dir")
+@click.argument("base_model", default="microsoft/unixcoder-base-nine")
+@click.argument("uid", default=None)
+def main(dataset_dir, base_model, uid):
+    tokenizer = AutoTokenizer.from_pretrained(base_model)
+    model = Classifier.from_pretrained(base_model, device_map="auto")
 
-    tokenizer = AutoTokenizer.from_pretrained(args.base_model)
-    model = Classifier.from_pretrained(args.base_model, device_map="auto")
+    dataset = load_from_disk(dataset_dir)
 
-    dataset = load_from_disk(args.dataset_dir)
-
-    final_model_path = os.path.join("hf-model", args.base_model.replace("/", "__"))
-    tensorboard_path = os.path.join("tb_logs", args.base_model.replace("/", "__"))
+    final_model_path = os.path.join("hf-model", base_model.replace("/", "__"))
+    tensorboard_path = os.path.join("tb_logs", base_model.replace("/", "__"))
     # find uid
     os.makedirs(final_model_path, exist_ok=True)
 
-    uid = 0
-    if args.uid is not None:
-        uid = args.uid
-    else:
+    if uid is None:
+        uid = 0
         while os.path.isdir(os.path.join(final_model_path, uid)) or os.path.isdir(os.path.join(tensorboard_path, uid)):
             uid += 1
     final_model_path = os.path.join(final_model_path, uid)
@@ -175,3 +169,7 @@ if __name__ == "__main__":
     )
 
     trainer.train()
+
+
+if __name__ == "__main__":
+    main()

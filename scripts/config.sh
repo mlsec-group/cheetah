@@ -2,9 +2,12 @@
 
 data_dir=$(pwd)/data
 log_dir=$(pwd)/logs
-hf_cache_dir=${data_dir}/.hf-cache
+hf_home=${data_dir}/.hf-cache
 slurm=0
 apptainer_cachedir=$(pwd)/tmp
 dataset=primevul
 
-mkdir -p ${hf_cache_dir} ${log_dir}
+mkdir -p ${hf_home} ${log_dir}
+
+# disable xet for hf cache in NFS
+HF_ENV="HF_HOME=${hf_home} HF_HUB_DISABLE_XET=1"

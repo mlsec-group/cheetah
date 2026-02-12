@@ -1,4 +1,5 @@
 *.sif
+data/
 assets/
 /sast/
 
