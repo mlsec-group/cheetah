@@ -1,13 +1,10 @@
 Bootstrap: docker
 From: python:3.12
 
-%files
-    ./mcpp /mcpp
-
 %post
     pip install numpy
     pip install click
-    pip install torch==2.4.1
+    pip install torch==2.6.0
     pip install torch-geometric
     pip install transformers[torch]
     pip install datasets
@@ -15,3 +12,4 @@ From: python:3.12
     pip install matplotlib scikit-learn
     pip install libclang==12.0.0
     pip install mcpp
+    pip install tiktoken

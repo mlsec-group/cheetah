@@ -67,8 +67,7 @@ def kill_after(t):
 @click.option("--base_model", default=None)
 @click.option("--truncate/--no-truncate", default=True)
 @click.option("--num-cpus", default=256, type=int)
-@click.option("--hf-cache-dir", default=None, type=click.Path(dir_okay=True, file_okay=False, path_type=Path))
-def main(data_dir, dataset_name, base_model, truncate, num_cpus, hf_cache_dir):
+def main(data_dir, dataset_name, base_model, truncate, num_cpus):
     tokenizer = None
     if base_model is not None:
         if base_model == "Salesforce/codegen25-7b-multi_P":
@@ -76,10 +75,9 @@ def main(data_dir, dataset_name, base_model, truncate, num_cpus, hf_cache_dir):
                 "Salesforce/codegen25-7b-multi_P",
                 trust_remote_code=True,
                 revision="c936d25f73e74984748a5ba39151b6bc7a056e2e",
-                cache_dir=hf_cache_dir
             )
         else:
-            tokenizer = AutoTokenizer.from_pretrained(base_model, cache_dir=hf_cache_dir)
+            tokenizer = AutoTokenizer.from_pretrained(base_model)
         model_max_length = 1024 if base_model == "microsoft/unixcoder-base-nine" else 512
     if not os.path.exists(os.path.join(os.path.join(data_dir, dataset_name), "hf")):
         from dataset.dataset import load_data
@@ -130,14 +128,14 @@ def main(data_dir, dataset_name, base_model, truncate, num_cpus, hf_cache_dir):
         }
     timeout = 30
     def add_features(sample):
-        result = {k: 0 for k in METRICS_ALIASES.keys()}
+        result = {k: 0.0 for k in METRICS_ALIASES.keys()}
         try:
             with kill_after(timeout):
                 text = sample["texts"]
                 if tokenizer is not None:
                     text = tokenizer.decode(tokenizer(text, **truncation_kwargs).input_ids)
                     result = extract_code(text)
-                    result = {k: result[METRICS_ALIASES[k]] for k in METRICS_ALIASES.keys()}
+                    result = {k: float(result[METRICS_ALIASES[k]]) for k in METRICS_ALIASES.keys()}
         except:
             pass
         return result

@@ -1,13 +1,11 @@
-#!/bin/bash
+#!/bin/sh
 
 data_dir=$(pwd)/data
 log_dir=$(pwd)/logs
-hf_home=${data_dir}/.hf-cache
+hf_env_file=$(pwd)/huggingface.env
 slurm=0
 apptainer_cachedir=$(pwd)/tmp
 dataset=primevul
 
-mkdir -p ${hf_home} ${log_dir}
-
-# disable xet for hf cache in NFS
-HF_ENV="HF_HOME=${hf_home} HF_HUB_DISABLE_XET=1"
+. ${hf_env_file}
+mkdir -p ${HF_HOME} ${log_dir}

@@ -120,7 +120,7 @@ def tokenize(sample, tokenizer, truncation_length):
 @click.argument("uid", default=None)
 def main(dataset_dir, uid):
     tokenizer = AutoTokenizer.from_pretrained("Salesforce/codegen25-7b-multi_P", trust_remote_code=True, revision="c936d25f73e74984748a5ba39151b6bc7a056e2e")
-    model = Classifier.from_pretrained("Salesforce/codegen25-7b-multi_P", device_map="auto", torch_dtype=torch.bfloat16)
+    model = Classifier.from_pretrained("Salesforce/codegen25-7b-multi_P", device_map="auto", torch_dtype=torch.bfloat16, revision="c936d25f73e74984748a5ba39151b6bc7a056e2e")
 
     dataset = load_from_disk(dataset_dir)
 
