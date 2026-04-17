@@ -1,18 +1,15 @@
-import click
+import argparse
 from pathlib import Path
 from tqdm import tqdm
 from datasets import load_from_disk
 
-@click.command()
-@click.option("--data", "-d", required=True, type=click.Path(file_okay=False, dir_okay=True, exists=True, path_type=Path), help="Data directory.")
-@click.option("--force/--no-force", default=False, type=bool, help="Force re-creation if dataset was already processed.")
-def hf_to_dir(data, force):
-    hf_dir = data / "hf"
+
+def run_hf_to_dir(data: Path, force: bool) -> None:
+    hf_dir = data /  "hf"
     output_dir = data / "sast" / "sources"
 
     if output_dir.exists() and not force:
         return
-
     dataset = load_from_disk(hf_dir)
     splits = ["train", "val", "test"]
 
@@ -24,5 +21,14 @@ def hf_to_dir(data, force):
             fpath = split_dir / f"{idx}.cpp"
             fpath.write_text(element["texts"])
 
+
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("--data", "-d", type=Path, required=True)
+    p.add_argument("--force", action="store_true")
+    args = p.parse_args()
+    run_hf_to_dir(args.data, args.force)
+
+
 if __name__ == "__main__":
-    hf_to_dir()
+    main()

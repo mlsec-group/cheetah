@@ -1,3 +1,0 @@
-input_dim: ${models.w2v.vector_size}
-hidden_dim: 128
-dropout: 0.3

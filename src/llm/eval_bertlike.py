@@ -1,6 +1,6 @@
+import argparse
 import json
 import math
-import argparse
 
 import torch
 import numpy as np
@@ -97,7 +97,7 @@ def evaluate_model(model, tokenizer, val_set, do_round=False):
 
         return dict(logits=logits.cpu().flatten().tolist())
 
-    logits = val_set.map(create_logits, batched=True, batch_size=64, num_proc=1, load_from_cache_file=False)
+    logits = val_set.map(create_logits, batched=True, batch_size=64, num_proc=None, load_from_cache_file=False)
 
     logits = torch.as_tensor(logits["logits"])
     predictions = torch.sigmoid(logits)
@@ -136,32 +136,40 @@ def collect_checkpoints(path):
     return ret
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Evaluate trained models on validation set and save results in respective checkpoint folders")
-    parser.add_argument("models_path", type=Path)
-    parser.add_argument("dataset_dir")
-    parser.add_argument("base_model", default="microsoft/unixcoder-base-nine")
-
-    args = parser.parse_args()
-
-    models_path = args.models_path / args.base_model.replace("/", "__")
-    if not models_path.is_dir():
+def run_eval_bertlike(models_path: Path, dataset_dir: str, base_model: str = "microsoft/unixcoder-base-nine") -> None:
+    resolved = models_path / base_model.replace("/", "__")
+    if not resolved.is_dir():
         raise ValueError("Provided path should be a directory containing all checkpoints to be tested in respective folders")
 
-    tokenizer = AutoTokenizer.from_pretrained(args.base_model)
-    model_config = AutoConfig.from_pretrained(args.base_model)
+    tokenizer = AutoTokenizer.from_pretrained(base_model)
+    model_config = AutoConfig.from_pretrained(base_model)
     model_max_length = min(
         tokenizer.model_max_length,
         2**int(math.log(model_config.max_position_embeddings, 2)), # biggest possible power of two that is smaller
     )
     print(f"Tokenizing datasets with maximum length {model_max_length}")
     tokenize_with_tokenizer = lambda s: tokenize(s, tokenizer, model_max_length)
-    test_set = load_from_disk(args.dataset_dir)["test"]
+    test_set = load_from_disk(dataset_dir)["test"]
     columns_to_remove = [c for c in test_set.column_names if "label" not in c]
     print(f"Removing {columns_to_remove} after tokenization")
-    test_set = test_set.map(tokenize_with_tokenizer, batched=True, num_proc=None, remove_columns=columns_to_remove, load_from_cache_file=False)
+    test_set = test_set.map(
+        tokenize_with_tokenizer, batched=True, num_proc=None, remove_columns=columns_to_remove, load_from_cache_file=False
+    )
 
-    checkpoints = collect_checkpoints(models_path)
+    checkpoints = collect_checkpoints(resolved)
 
     for checkpoint in tqdm(checkpoints):
         evaluate_checkpoint(checkpoint, tokenizer, test_set)
+
+
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("models_path", type=Path)
+    p.add_argument("dataset_dir")
+    p.add_argument("base_model", nargs="?", default="microsoft/unixcoder-base-nine")
+    args = p.parse_args()
+    run_eval_bertlike(args.models_path, args.dataset_dir, args.base_model)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,12 +1,19 @@
 #!/bin/bash
+#SBATCH --job-name=cheetah-causal-access-per-model
+#SBATCH --output=data/logs/causal-access-per-model/%j.out
+#SBATCH --error=data/logs/causal-access-per-model/%j.err
+#SBATCH --mem=40G
+#SBATCH --partition=cpu-2h
+#SBATCH --cpus-per-task=4
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
 
-for i in $(seq 1 10);
-do
-    apptainer run container.sif python3 src/causal_analysis/access_per_model.py data/mcpp microsoft/unixcoder-base-nine $i
-    apptainer run container.sif python3 src/causal_analysis/access_per_model.py data/mcpp microsoft/codebert-base $i
-    apptainer run container.sif python3 src/causal_analysis/access_per_model.py data/mcpp data/pdbert $i
-    apptainer run container.sif python3 src/causal_analysis/access_per_model.py data/mcpp Salesforce/codegen25-7b-multi_P $i
-    apptainer run container.sif python3 src/causal_analysis/access_per_model.py data/mcpp bigcode/starcoder2-7b $i
+set -euo pipefail
+# shellcheck source=/dev/null
+. scripts/apptainer_cheetah.sh
+
+for i in $(seq 1 10); do
+  _cheetah_run container.sif python -m causal_analysis.access_per_model "${PWD}/data/mcpp" microsoft/unixcoder-base-nine "${i}"
 done
 
-apptainer run container.sif python3 src/causal_analysis/access.py
+_cheetah_run container.sif python -m causal_analysis.access

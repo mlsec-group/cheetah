@@ -1,5 +1,5 @@
-import os
 import argparse
+import os
 
 import torch
 import torch.nn.functional as F
@@ -50,27 +50,22 @@ def process_checkpoint(checkpoint_path, tokenizer, dataset):
     return logits_set
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("dataset_path")
-    parser.add_argument("base_model", default="microsoft/unixcoder-base-nine")
-    parser.add_argument("uid", default=None)
-    args = parser.parse_args()
+def run_add_predictions(dataset_path: str, base_model: str, uid: str) -> None:
+    final_model_path = os.path.join("hf-model", base_model.replace("/", "__"))
+    final_model_path = os.path.join(final_model_path, uid)
 
-    final_model_path = os.path.join("hf-model", args.base_model.replace("/", "__"))
-    final_model_path = os.path.join(final_model_path, args.uid)
-    
-    if args.base_model == "Salesforce/codegen25-7b-multi_P":
-        # specific revision to fix bug on main branch
-        tokenizer = AutoTokenizer.from_pretrained("Salesforce/codegen25-7b-multi_P", trust_remote_code=True, revision="c936d25f73e74984748a5ba39151b6bc7a056e2e")
+    if base_model == "Salesforce/codegen25-7b-multi_P":
+        tokenizer = AutoTokenizer.from_pretrained(
+            "Salesforce/codegen25-7b-multi_P", trust_remote_code=True, revision="c936d25f73e74984748a5ba39151b6bc7a056e2e"
+        )
     else:
-        tokenizer = AutoTokenizer.from_pretrained(args.base_model)
-    if args.base_model in ["Salesforce/codegen25-7b-multi_P", "bigcode/starcoder2-7b"]:
+        tokenizer = AutoTokenizer.from_pretrained(base_model)
+    if base_model in ["Salesforce/codegen25-7b-multi_P", "bigcode/starcoder2-7b"]:
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
-    dataset = load_from_disk(args.dataset_path)
-    model_max_length = 1024 if args.base_model == "microsoft/unixcoder-base-nine" else 512
+    dataset = load_from_disk(dataset_path)
+    model_max_length = 1024 if base_model == "microsoft/unixcoder-base-nine" else 512
     print(f"Tokenizing datasets with maximum length {model_max_length}")
     tokenize_with_tokenizer = lambda s: tokenize(s, tokenizer, model_max_length)
     dataset = dataset.map(tokenize_with_tokenizer, batched=True, num_proc=None, load_from_cache_file=False)
@@ -79,10 +74,23 @@ if __name__ == "__main__":
         checkpoint_path = os.path.join(final_model_path, checkpoint)
         result = process_checkpoint(checkpoint_path, tokenizer, dataset)
         result_path = os.path.join(
-            os.path.abspath(os.path.join(args.dataset_path, os.pardir)), 
-            args.base_model.replace("/", "__"), 
-            args.uid, 
-            checkpoint
+            os.path.abspath(os.path.join(dataset_path, os.pardir)),
+            base_model.replace("/", "__"),
+            uid,
+            checkpoint,
         )
         os.makedirs(result_path, exist_ok=True)
         result.save_to_disk(result_path)
+
+
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("dataset_path")
+    p.add_argument("base_model")
+    p.add_argument("uid")
+    args = p.parse_args()
+    run_add_predictions(args.dataset_path, args.base_model, args.uid)
+
+
+if __name__ == "__main__":
+    main()

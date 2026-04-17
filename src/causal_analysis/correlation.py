@@ -61,7 +61,7 @@ MAPPING = {
 }
 INVERSE_MAPPING = {v: k for k,v in MAPPING.items()}
 
-if __name__ == "__main__":
+def run_correlation_main() -> None:
     data = Path("./data/primevul")
     models = Path(".") / "hf-model"
     unixcoder_predictions = load_all_predictions(models / "microsoft__unixcoder-base-nine")
@@ -146,3 +146,9 @@ if __name__ == "__main__":
         print("},")
 
 
+def main() -> None:
+    run_correlation_main()
+
+
+if __name__ == "__main__":
+    main()

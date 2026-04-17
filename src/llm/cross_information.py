@@ -1,7 +1,7 @@
+import argparse
 import os
 import json
 import numpy as np
-import argparse
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
@@ -12,17 +12,9 @@ from datasets import load_from_disk
 
 relevant_metrics = ["C1", "C2", "C3", "C4", "V1", "V3", "V6", "V7", "V8", "V10", "x1", "x2", "x3", "x4", "t1", "t2", "t3", "s1", "s2", "s3", "s4", "m1", "m2"]
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("dataset_path")
-    parser.add_argument("base_model", default="microsoft/unixcoder-base-nine")
-    parser.add_argument("uid", default=None)
-    args = parser.parse_args()
-
-    if args.uid is None:
-        raise ValueError(f"invalid uid")
-    final_model_path = os.path.join("hf-model", args.base_model.replace("/", "__"))
-    final_model_path = os.path.join(final_model_path, args.uid)
+def run_cross_information(dataset_path: str, base_model: str, uid: str) -> None:
+    final_model_path = os.path.join("hf-model", base_model.replace("/", "__"))
+    final_model_path = os.path.join(final_model_path, uid)
     checkpoints = os.listdir(final_model_path)
     assert len(checkpoints) > 0 and all(checkpoint.split("-")[1].isnumeric() for checkpoint in checkpoints)
     smallest_checkpoint = sorted(checkpoints, key=lambda s: int(s.split("-")[1]))[0]
@@ -30,8 +22,8 @@ if __name__ == "__main__":
 
     embedding_dataset = load_from_disk(os.path.join(final_model_path, "embedded"))
     embedding_dataset.set_format("numpy")
-    model_suffix = "-"+args.base_model.replace("/", "__")
-    features_dataset = load_from_disk(args.dataset_path + model_suffix)
+    model_suffix = "-" + base_model.replace("/", "__")
+    features_dataset = load_from_disk(dataset_path + model_suffix)
 
     train_features = np.array([features_dataset["train"][k] for k in relevant_metrics]).T
     val_features = np.array([features_dataset["val"][k] for k in relevant_metrics]).T
@@ -40,9 +32,15 @@ if __name__ == "__main__":
     val_labels = np.array(features_dataset["val"]["labels"])
     test_labels = np.array(features_dataset["test"]["labels"])
 
-    train_embeddings = np.concatenate([embedding_dataset["train"][i]["embeddings"][np.newaxis, ...] for i in range(len(embedding_dataset["train"]))])
-    val_embeddings = np.concatenate([embedding_dataset["val"][i]["embeddings"][np.newaxis, ...] for i in range(len(embedding_dataset["val"]))])
-    test_embeddings = np.concatenate([embedding_dataset["test"][i]["embeddings"][np.newaxis, ...] for i in range(len(embedding_dataset["test"]))])
+    train_embeddings = np.concatenate(
+        [embedding_dataset["train"][i]["embeddings"][np.newaxis, ...] for i in range(len(embedding_dataset["train"]))]
+    )
+    val_embeddings = np.concatenate(
+        [embedding_dataset["val"][i]["embeddings"][np.newaxis, ...] for i in range(len(embedding_dataset["val"]))]
+    )
+    test_embeddings = np.concatenate(
+        [embedding_dataset["test"][i]["embeddings"][np.newaxis, ...] for i in range(len(embedding_dataset["test"]))]
+    )
 
     train_combined = np.hstack([train_embeddings, train_features])
     val_combined = np.hstack([val_embeddings, val_features])
@@ -58,3 +56,16 @@ if __name__ == "__main__":
 
     with open(os.path.join(final_model_path, "concatenation_results.json"), "w", encoding="utf8") as f:
         json.dump([f1_normal, f1_combined], f)
+
+
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("dataset_path")
+    p.add_argument("base_model")
+    p.add_argument("uid")
+    args = p.parse_args()
+    run_cross_information(args.dataset_path, args.base_model, args.uid)
+
+
+if __name__ == "__main__":
+    main()

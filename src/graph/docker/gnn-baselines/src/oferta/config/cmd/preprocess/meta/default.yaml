@@ -1,3 +1,0 @@
-raw_dir: ${paths.raw}
-urls_csv: ${paths.meta}/urls.csv
-commits_csv: ${paths.meta}/commits.csv

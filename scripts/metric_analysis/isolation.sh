@@ -1,22 +1,31 @@
-#!/bin/sh
-#SBATCH --job-name=underground-metrics-sf
+#!/bin/bash
+#SBATCH --job-name=cheetah-metrics-isolation
 #SBATCH --partition=cpu-2h
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu=4gb
 #SBATCH --cpus-per-task=4
-#SBATCH --output=data/output/underground-metrics-sf/array_%A-%a.out
-#SBATCH --array=0-45
+#SBATCH --output=data/logs/cheetah-metrics-isolation/array_%A-%a.out
+#SBATCH --array=0-22
 
 pwd; cat /etc/hostname; date
 
-source scripts/config.sh
+# shellcheck source=/dev/null
+. scripts/config.sh
+# shellcheck source=/dev/null
+. scripts/apptainer_cheetah.sh
 
 if [ ${slurm:=0} -eq 1 ]; then
-  apptainer run auto.sif python3 src/metrics/isolation.py --data-dir data/mcpp-subset --job-id ${SLURM_ARRAY_TASK_ID}
+  mkdir -p "${log_dir}/cheetah-metrics-isolation"
+  _cheetah_run auto.sif python -m metrics.isolation \
+      --data-dir "${data_dir}/${dataset}/mcpp-microsoft__unixcoder-base-nine" \
+      --job-id "${SLURM_ARRAY_TASK_ID}"
 else
-  for job_id in {0..45}; do
-    apptainer run auto.sif python3 src/metrics/isolation.py --data-dir data/mcpp-subset --job-id ${job_id}
+  for job_id in {0..22}; do
+    echo "Running job ${job_id}"
+    _cheetah_run auto.sif python -m metrics.isolation \
+        --data-dir "${data_dir}/${dataset}/mcpp-microsoft__unixcoder-base-nine" \
+        --job-id "${job_id}"
   done
 fi
 

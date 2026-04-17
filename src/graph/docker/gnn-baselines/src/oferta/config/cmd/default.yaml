@@ -1,3 +1,0 @@
-defaults:
-  - preprocess: default.yaml
-  - train: default.yaml

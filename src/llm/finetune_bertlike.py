@@ -1,12 +1,10 @@
+import argparse
 import os
 import math
-import argparse
+from typing import Optional, Union, Tuple
 
 import torch
 import torch.nn.functional as F
-
-from typing import Optional, Union, Tuple
-
 from datasets import load_from_disk
 
 from transformers import DataCollatorWithPadding
@@ -95,29 +93,26 @@ def tokenize(sample, tokenizer, truncation_length):
     return tokenizer(sample["texts"], truncation=True, max_length=truncation_length)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("dataset_dir")
-    parser.add_argument("base_model", default="microsoft/unixcoder-base-nine")
-    parser.add_argument("uid", default=None)
-    args = parser.parse_args()
+def run_finetune_bertlike(
+    dataset_dir: str, base_model: str = "microsoft/unixcoder-base-nine", uid: Optional[str] = None
+) -> None:
+    tokenizer = AutoTokenizer.from_pretrained(base_model)
+    model = Classifier.from_pretrained(base_model, device_map="auto")
 
-    tokenizer = AutoTokenizer.from_pretrained(args.base_model)
-    model = Classifier.from_pretrained(args.base_model, device_map="auto")
+    dataset = load_from_disk(dataset_dir)
 
-    dataset = load_from_disk(args.dataset_dir)
-
-    final_model_path = os.path.join("hf-model", args.base_model.replace("/", "__"))
-    tensorboard_path = os.path.join("tb_logs", args.base_model.replace("/", "__"))
+    final_model_path = os.path.join("hf-model", base_model.replace("/", "__"))
+    tensorboard_path = os.path.join("tb_logs", base_model.replace("/", "__"))
     # find uid
     os.makedirs(final_model_path, exist_ok=True)
 
-    uid = 0
-    if args.uid is not None:
-        uid = args.uid
-    else:
-        while os.path.isdir(os.path.join(final_model_path, uid)) or os.path.isdir(os.path.join(tensorboard_path, uid)):
-            uid += 1
+    if uid is None:
+        uid_i = 0
+        while os.path.isdir(os.path.join(final_model_path, str(uid_i))) or os.path.isdir(
+            os.path.join(tensorboard_path, str(uid_i))
+        ):
+            uid_i += 1
+        uid = str(uid_i)
     final_model_path = os.path.join(final_model_path, uid)
     tensorboard_path = os.path.join(tensorboard_path, uid)
 
@@ -175,3 +170,16 @@ if __name__ == "__main__":
     )
 
     trainer.train()
+
+
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("dataset_dir")
+    p.add_argument("base_model", nargs="?", default="microsoft/unixcoder-base-nine")
+    p.add_argument("uid", nargs="?", default=None)
+    args = p.parse_args()
+    run_finetune_bertlike(args.dataset_dir, args.base_model, args.uid)
+
+
+if __name__ == "__main__":
+    main()

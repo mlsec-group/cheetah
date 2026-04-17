@@ -1,4 +1,4 @@
-import click
+import argparse
 import pickle
 import numpy as np
 import json
@@ -13,21 +13,17 @@ from sklearn.metrics import (
     matthews_corrcoef, balanced_accuracy_score,
 )
 
-from config import TOTAL_TIME, N_JOBS, BEST_MI as BEST
-from util import calculate_vul_det_score, best_threshold
+from metrics.config import TOTAL_TIME, N_JOBS, BEST_MI as BEST
+from metrics.util import calculate_vul_det_score, best_threshold
 
 
-@click.command()
-@click.option("--data-dir", required=True, type=click.Path(dir_okay=True, file_okay=False, exists=True, path_type=Path))
-@click.option("--job-id", required=True, type=int)
-def main(data_dir, job_id):
-    job_id = job_id
-    metric_no = job_id % 23
+def run_leaveoneout(data_dir: Path, job_id: int) -> None:
+    metric_no = job_id % len(BEST)
 
     relevant_metrics = [BEST[i] for i in range(len(BEST)) if i != metric_no]
 
     # Output directory
-    output_dir = data_dir / "autosklearn-model-abo" / str(metric_no) / str(job_id)
+    output_dir = data_dir / "autosklearn-model-leaveoneout" / str(metric_no) / str(job_id)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Load data
@@ -45,7 +41,7 @@ def main(data_dir, job_id):
     train_scaled = scaler.transform(train_features)
     val_scaled = scaler.transform(val_features)
     test_scaled = scaler.transform(test_features)
-    
+
     # non exhaustive cross validation
     selected_indices = np.random.choice(np.arange(len(train_scaled)), int(len(train_scaled) * 0.9))
     train_scaled = train_scaled[selected_indices]
@@ -84,8 +80,21 @@ def main(data_dir, job_id):
     model_fpath.write_bytes(pickle.dumps(automl))
 
     # Save predictions
-    result_fpath = output_dir / "predictions.json"
+    predictions_fpath = output_dir / "predictions.json"
+    predictions_fpath.write_text(json.dumps(predictions.tolist(), indent=2))
+
+    # Save results
+    result_fpath = output_dir / "results.json"
     result_fpath.write_text(json.dumps(metrics, indent=2))
+
+
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("--data-dir", type=Path, required=True)
+    p.add_argument("--job-id", type=int, required=True)
+    args = p.parse_args()
+    run_leaveoneout(args.data_dir, args.job_id)
+
 
 if __name__ == "__main__":
     main()

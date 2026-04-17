@@ -1,31 +1,44 @@
 #!/bin/bash
+#SBATCH --job-name=cheetah-causal-analysis-preprocess
+#SBATCH --partition=gpu-5h
+#SBATCH --constraint=80gb
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --mem=40G
+#SBATCH --cpus-per-task=4
+#SBATCH --gpus-per-task=1
+#SBATCH --output=data/logs/causal-analysis-preprocess/%j.out
+#SBATCH --error=data/logs/causal-analysis-preprocess/%j.err
+#SBATCH --exclude=head022,head076
 
-## TODO: add mcpp preprocessing
+set -euo pipefail
+# CWD must be repository root (interactive or sbatch).
+# shellcheck source=/dev/null
+. scripts/apptainer_cheetah.sh
 
-for i in $(seq 1 10);
-do
-    apptainer run container.sif python3 src/llm/add_predictions.py data/primevul microsoft/unixcoder-base-nine $i
-    apptainer run container.sif python3 src/llm/add_predictions.py data/primevul microsoft/codebert-base $i
-    apptainer run container.sif python3 src/llm/add_predictions.py data/primevul data/pdbert $i
-    apptainer run container.sif python3 src/llm/add_predictions.py data/primevul Salesforce/codegen25-7b-multi_P $i
-    apptainer run container.sif python3 src/llm/add_predictions.py data/primevul bigcode/starcoder2-7b $i
-    ## TODO: add predictions for scm
+PV="${PWD}/data/primevul"
+PVL="${PWD}/data/primevul-lookaround"
+PDB="${PWD}/data/pdbert"
+
+HF_ENV="${PWD}/huggingface.env"
+for _mcpp_dataset_root in "${PV}" "${PVL}"; do
+  _mcpp_data_dir=$(dirname -- "${_mcpp_dataset_root}")
+  _mcpp_dataset_name=$(basename -- "${_mcpp_dataset_root}")
+  _cheetah_run --env-file "${HF_ENV}" container.sif python -m metrics.calculate \
+    --data-dir "${_mcpp_data_dir}" \
+    --dataset-name "${_mcpp_dataset_name}" \
+    --no-truncate \
+    --base-model microsoft/unixcoder-base-nine
 done
 
-for i in $(seq 1 10);
-do
-    apptainer run container.sif python3 src/llm/add_predictions.py data/primevul-lookaround microsoft/unixcoder-base-nine $i
-    apptainer run container.sif python3 src/llm/add_predictions.py data/primevul-lookaround microsoft/codebert-base $i
-    apptainer run container.sif python3 src/llm/add_predictions.py data/primevul-lookaround data/pdbert $i
-    apptainer run container.sif python3 src/llm/add_predictions.py data/primevul-lookaround Salesforce/codegen25-7b-multi_P $i
-    apptainer run container.sif python3 src/llm/add_predictions.py data/primevul-lookaround bigcode/starcoder2-7b $i
+for i in $(seq 1 10); do
+  _cheetah_run container.sif python -m llm.add_predictions "${PV}" microsoft/unixcoder-base-nine "${i}"
 done
 
-for i in $(seq 1 10);
-do
-    apptainer run container.sif python3 src/llm/add_embeddings.py data/primevul microsoft/unixcoder-base-nine $i
-    apptainer run container.sif python3 src/llm/add_embeddings.py data/primevul microsoft/codebert-base $i
-    apptainer run container.sif python3 src/llm/add_embeddings.py data/primevul data/pdbert $i
-    apptainer run container.sif python3 src/llm/add_embeddings.py data/primevul Salesforce/codegen25-7b-multi_P $i
-    apptainer run container.sif python3 src/llm/add_embeddings.py data/primevul bigcode/starcoder2-7b $i
+for i in $(seq 1 10); do
+  _cheetah_run container.sif python -m llm.add_predictions "${PVL}" microsoft/unixcoder-base-nine "${i}"
+done
+
+for i in $(seq 1 10); do
+  _cheetah_run container.sif python -m llm.add_embeddings "${PV}" microsoft/unixcoder-base-nine "${i}"
 done

@@ -1,6 +1,6 @@
+import argparse
 import math
 import json
-import argparse
 import statistics
 
 from pathlib import Path
@@ -21,6 +21,8 @@ def collect_results(path, selection_predicate):
             continue
         selected_path = None
         for c in p.iterdir():
+            if c.name == "runs":
+                continue
             assert "checkpoint" in c.name
             if not (c / "config.json").exists():
                 continue
@@ -46,7 +48,7 @@ def aggregate(results_list):
         results = results_list[0]
         for k, v in results.items():
             ret[f"{k}_mu"] = v
-            ret[f"{k}_std"] = float("inf")
+            ret[f"{k}_ci"] = float("inf")
         return ret
 
     all_results = {k: [] for k in results_list[0].keys()}
@@ -62,6 +64,7 @@ def aggregate(results_list):
 
     return ret
 
+
 def apply_formatting(results):
     ret = ""
     for k in sorted(set(map(lambda k: k.rsplit("_", 1)[0], results.keys()))):
@@ -72,26 +75,33 @@ def apply_formatting(results):
         ret += f"{k: <4}: {mu: >5.2f}% ± {ci: >5.2f}"
     return ret
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Evaluate trained models on validation set and save results in respective checkpoint folders")
-    parser.add_argument("models_path", type=Path)
-    parser.add_argument("--last-checkpoint", action="store_true")
-    parser.add_argument("--dat", default=None, required=False)
 
-    args = parser.parse_args()
-
-    if not args.models_path.is_dir():
+def run_llm_aggregate(models_path: Path, last_checkpoint: bool = False, dat: str | None = None) -> None:
+    if not models_path.is_dir():
         raise ValueError("Provided path should be a directory containing all checkpoints to be tested in respective folders")
 
     selection_predicate = lambda x1, x2: x1 < x2
-    if args.last_checkpoint:
+    if last_checkpoint:
         selection_predicate = lambda x1, x2: x1 > x2
 
-    results = collect_results(args.models_path, selection_predicate)
+    results = collect_results(models_path, selection_predicate)
     print(f"Found results for {len(results)} models")
 
     aggregated_results = aggregate(results)
-    if args.dat is not None:
+    if dat is not None:
         for result in results:
-            print(100*result[args.dat])
+            print(100 * result[dat])
     print(apply_formatting(aggregated_results))
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description="Aggregate LLM runs.")
+    p.add_argument("models_path", type=Path)
+    p.add_argument("--last-checkpoint", action="store_true")
+    p.add_argument("--dat", default=None)
+    args = p.parse_args()
+    run_llm_aggregate(args.models_path, last_checkpoint=args.last_checkpoint, dat=args.dat)
+
+
+if __name__ == "__main__":
+    main()

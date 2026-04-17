@@ -105,7 +105,7 @@ def format_result(vals):
     return f"{format_number(mean)} ± {format_number(ci)}"
 
 
-if __name__ == "__main__":
+def run_dependence_main() -> None:
     dataset_path = Path("./data/primevul-lookaround")
     model_paths = {
         "PDBert": dataset_path / "data__pdbert",
@@ -181,4 +181,12 @@ if __name__ == "__main__":
         for diffed in all_diffs[name]:
             diff_predictions = torch.as_tensor(diffed["train"]["diff_predictions"] + diffed["val"]["diff_predictions"] + diffed["test"]["diff_predictions"])
             summed += torch.mean(torch.abs(diff_predictions)).item()
-        print(name, summed/len(all_results[name]))
+        print(name, summed / len(all_results[name]))
+
+
+def main() -> None:
+    run_dependence_main()
+
+
+if __name__ == "__main__":
+    main()

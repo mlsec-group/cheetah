@@ -1,4 +1,0 @@
-in_dir: ${paths.processed}
-w2v_cfg: ${models.w2v}
-ignore_tokens: ${tokenizer.ignore_tokens}
-model_path: ${paths.models}/w2v.kv
