@@ -1,2 +1,0 @@
-in_dir: ${paths.processed}
-out_file: ${paths.meta}/node_type_vocab.json

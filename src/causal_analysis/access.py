@@ -65,22 +65,22 @@ def aggregate(results_list):
             ret[f"{k}_mu"] = v
             ret[f"{k}_ci"] = float("inf")
         return ret
-    
+
     all_results = {k: [] for k in results_list[0].keys()}
     for results in results_list:
         for k,v in results.items():
             all_results[k].append(v)
-    
+
     ret = {}
     for k, vs in all_results.items():
         vs = [max(v, 0) for v in vs]
         ret[f"{k}_mu"] = statistics.mean(vs)
         ret[f"{k}_ci"] = 1.644850 * statistics.stdev(vs) / math.sqrt(len(vs))
-    
+
     return ret
 
 
-if __name__ == "__main__":
+def run_access_r2_aggregate() -> None:
     models = Path(".") / "hf-model"
     unixcoder_r2s = load_all_r2s(models / "microsoft__unixcoder-base-nine")
     pdbert_r2s = load_all_r2s(models / "data__pdbert")
@@ -103,7 +103,15 @@ if __name__ == "__main__":
         print("{", end="")
         for ik, k in enumerate(sorted_relevant_metrics):
             if ik < len(relevant_metrics) - 1:
-                print(f"{round(results[k+"_mu"], 4):.4f}, ", end="")
+                print(f"{round(results[k + '_mu'], 4):.4f}, ", end="")
             else:
-                print(f"{round(results[k+"_mu"], 4):.4f}", end="")
+                print(f"{round(results[k + '_mu'], 4):.4f}", end="")
         print("},")
+
+
+def main() -> None:
+    run_access_r2_aggregate()
+
+
+if __name__ == "__main__":
+    main()

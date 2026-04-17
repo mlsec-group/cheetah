@@ -1,6 +1,0 @@
-min_count: 3  # guessed
-seed: ${experiment.seed}
-vector_size: 100  # devign default
-max_vocab_size: 100_000
-workers: ${hardware.cores}
-sg: 1  # guessed

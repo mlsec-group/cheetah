@@ -1,10 +1,10 @@
+import argparse
 import os
 import math
 from typing import Optional, Union, Tuple
 
 import torch
 import torch.nn.functional as F
-import click
 from datasets import load_from_disk
 
 from transformers import DataCollatorWithPadding
@@ -93,11 +93,9 @@ def tokenize(sample, tokenizer, truncation_length):
     return tokenizer(sample["texts"], truncation=True, max_length=truncation_length)
 
 
-@click.command()
-@click.argument("dataset_dir")
-@click.argument("base_model", default="microsoft/unixcoder-base-nine")
-@click.argument("uid", default=None)
-def main(dataset_dir, base_model, uid):
+def run_finetune_bertlike(
+    dataset_dir: str, base_model: str = "microsoft/unixcoder-base-nine", uid: Optional[str] = None
+) -> None:
     tokenizer = AutoTokenizer.from_pretrained(base_model)
     model = Classifier.from_pretrained(base_model, device_map="auto")
 
@@ -109,9 +107,12 @@ def main(dataset_dir, base_model, uid):
     os.makedirs(final_model_path, exist_ok=True)
 
     if uid is None:
-        uid = 0
-        while os.path.isdir(os.path.join(final_model_path, uid)) or os.path.isdir(os.path.join(tensorboard_path, uid)):
-            uid += 1
+        uid_i = 0
+        while os.path.isdir(os.path.join(final_model_path, str(uid_i))) or os.path.isdir(
+            os.path.join(tensorboard_path, str(uid_i))
+        ):
+            uid_i += 1
+        uid = str(uid_i)
     final_model_path = os.path.join(final_model_path, uid)
     tensorboard_path = os.path.join(tensorboard_path, uid)
 
@@ -169,6 +170,15 @@ def main(dataset_dir, base_model, uid):
     )
 
     trainer.train()
+
+
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("dataset_dir")
+    p.add_argument("base_model", nargs="?", default="microsoft/unixcoder-base-nine")
+    p.add_argument("uid", nargs="?", default=None)
+    args = p.parse_args()
+    run_finetune_bertlike(args.dataset_dir, args.base_model, args.uid)
 
 
 if __name__ == "__main__":

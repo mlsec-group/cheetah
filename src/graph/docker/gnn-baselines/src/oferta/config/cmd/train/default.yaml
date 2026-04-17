@@ -1,5 +1,0 @@
-defaults:
-  - _self_
-  - w2v: default.yaml
-  - split: default.yaml
-  - train: default.yaml

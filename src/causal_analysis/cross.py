@@ -18,7 +18,7 @@ def load_all(path: Path):
             results.append(json.load(f))
     return results
 
-if __name__ == "__main__":
+def run_cross_f1_diff() -> None:
     models = Path(".") / "hf-model"
     unixcoder = load_all(models / "microsoft__unixcoder-base-nine")
     pdbert = load_all(models / "data__pdbert")
@@ -36,3 +36,11 @@ if __name__ == "__main__":
         round(sum(t[1] - t[0] for t in starcoder) / len(starcoder) * 100, 2),
         round(sum(t[1] - t[0] for t in codegen) / len(codegen) * 100, 2),
     )
+
+
+def main() -> None:
+    run_cross_f1_diff()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,6 +1,6 @@
+import argparse
 import os
 import json
-import argparse
 
 import torch
 import torch.nn.functional as F
@@ -200,25 +200,35 @@ def evaluate_checkpoint(checkpoint_path, tokenizer, val_set):
     print(json.dumps(metrics, indent=1))
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("dataset_path")
-    parser.add_argument("uid", default=None)
-    args = parser.parse_args()
-
+def run_eval_codegen(dataset_path: str, uid: str) -> None:
     final_model_path = os.path.join("hf-model", "Salesforce/codegen25-7b-multi_P".replace("/", "__"))
-    final_model_path = os.path.join(final_model_path, args.uid)
-    tokenizer = AutoTokenizer.from_pretrained("Salesforce/codegen25-7b-multi_P", trust_remote_code=True, revision="c936d25f73e74984748a5ba39151b6bc7a056e2e")
+    final_model_path = os.path.join(final_model_path, uid)
+    tokenizer = AutoTokenizer.from_pretrained(
+        "Salesforce/codegen25-7b-multi_P", trust_remote_code=True, revision="c936d25f73e74984748a5ba39151b6bc7a056e2e"
+    )
 
-    dataset = load_from_disk(args.dataset_path)["test"]
-    model_max_length = 512 # taken from PrimeVul
+    dataset = load_from_disk(dataset_path)["test"]
+    model_max_length = 512
     print(f"Tokenizing datasets with maximum length {model_max_length}")
     tokenize_with_tokenizer = lambda s: tokenize(s, tokenizer, model_max_length)
     columns_to_remove = [c for c in dataset.column_names if "label" not in c]
     print(f"Removing {columns_to_remove} after tokenization")
-    dataset = dataset.map(tokenize_with_tokenizer, batched=True, num_proc=None, remove_columns=columns_to_remove, load_from_cache_file=False)
+    dataset = dataset.map(
+        tokenize_with_tokenizer, batched=True, num_proc=None, remove_columns=columns_to_remove, load_from_cache_file=False
+    )
     tokenizer.pad_token = tokenizer.eos_token
-
 
     for checkpoint in tqdm(os.listdir(final_model_path)):
         evaluate_checkpoint(os.path.join(final_model_path, checkpoint), tokenizer, dataset)
+
+
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("dataset_path")
+    p.add_argument("uid")
+    args = p.parse_args()
+    run_eval_codegen(args.dataset_path, args.uid)
+
+
+if __name__ == "__main__":
+    main()

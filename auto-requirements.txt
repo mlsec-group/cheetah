@@ -1,0 +1,8 @@
+# Autosklearn metric jobs (auto.sif). Python 3.9 in image.
+numpy==1.26.4
+scikit-learn
+auto-sklearn
+datasets
+tqdm
+joblib
+loguru

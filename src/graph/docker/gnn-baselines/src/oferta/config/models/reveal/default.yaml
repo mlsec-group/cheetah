@@ -1,6 +1,0 @@
-input_dim: ${models.w2v.vector_size}
-hidden_dim: 64  # guessed
-ggnn_layers: 3  # guessed
-graph_embed_size: 300 # guessed, might give some weird errors if too small
-extractor_layers: 1  # guessed
-dropout: 0.3

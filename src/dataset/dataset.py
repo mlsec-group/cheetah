@@ -1,4 +1,4 @@
-import click
+import argparse
 import json
 from pathlib import Path
 from datasets import Dataset, DatasetDict
@@ -13,10 +13,7 @@ def load_data(fpath):
     ]
 
 
-@click.command()
-@click.option("--data", "-d", required=True, type=click.Path(dir_okay=True, file_okay=False, path_type=Path), help="Dataset directory.")
-@click.option("--dataset-name", required=True, type=str, help="Dataset name.")
-def create_hf_dataset(data, dataset_name):
+def run_create_hf_dataset(data: Path, dataset_name: str) -> None:
     data = data / dataset_name
     raw_path = data / "raw"
     output_path = data / "hf"
@@ -44,5 +41,13 @@ def create_hf_dataset(data, dataset_name):
     hf_dataset.save_to_disk(output_path)
 
 
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("--data", "-d", type=Path, required=True)
+    p.add_argument("--dataset-name", required=True)
+    args = p.parse_args()
+    run_create_hf_dataset(args.data, args.dataset_name)
+
+
 if __name__ == "__main__":
-    create_hf_dataset()
+    main()

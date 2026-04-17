@@ -1,4 +1,4 @@
-import click
+import argparse
 import pickle
 import numpy as np
 import json
@@ -13,15 +13,11 @@ from sklearn.metrics import (
     matthews_corrcoef, balanced_accuracy_score,
 )
 
-from config import TOTAL_TIME, N_JOBS, MAX_NUM_METRICS, BEST_MRMR as SELECTED_METRICS
-from util import calculate_vul_det_score, best_threshold
+from metrics.config import TOTAL_TIME, N_JOBS, MAX_NUM_METRICS, BEST_MRMR as SELECTED_METRICS
+from metrics.util import calculate_vul_det_score, best_threshold
 
 
-@click.command()
-@click.option("--data-dir", required=True, type=click.Path(dir_okay=True, file_okay=False, exists=True, path_type=Path))
-@click.option("--metric-subset/--no-metric-subset", default=False)
-@click.option("--job-id", required=True, type=int)
-def main(data_dir, metric_subset, job_id):
+def run_train_autosklearn(data_dir: Path, metric_subset: bool, job_id: int) -> None:
     num_metrics = len(SELECTED_METRICS)
     if metric_subset:
         num_metrics = (job_id % num_metrics) + 1
@@ -95,8 +91,28 @@ def main(data_dir, metric_subset, job_id):
     model_fpath.write_bytes(pickle.dumps(automl))
 
     # Save predictions
-    result_fpath = output_dir / "predictions.json"
+    predictions_fpath = output_dir / "predictions.json"
+    predictions_fpath.write_text(json.dumps(predictions.tolist(), indent=2))
+
+    # Save results
+    result_fpath = output_dir / "results.json"
     result_fpath.write_text(json.dumps(metrics, indent=2))
+
+
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("--data-dir", type=Path, required=True)
+    p.add_argument(
+        "--metric-subset/--no-metric-subset",
+        dest="metric_subset",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+    )
+    p.add_argument("--job-id", type=int, required=True)
+    args = p.parse_args()
+    run_train_autosklearn(args.data_dir, args.metric_subset, args.job_id)
+
 
 if __name__ == "__main__":
     main()
+

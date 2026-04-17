@@ -1,4 +1,0 @@
-in_train: ${dataset.raw_train}
-in_val: ${dataset.raw_val}
-in_test: ${dataset.raw_test}
-out_dir: ${paths.interim}

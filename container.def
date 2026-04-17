@@ -1,15 +1,74 @@
+# GPU-capable image for LLM finetune/eval, MCPP metric extraction, causal helpers, etc.
+# Build: apptainer build container.sif container.def
+# Run (from repo root): apptainer exec --nv container.sif bash -lc 'export PYTHONPATH="${PWD}/src" && python -m llm.finetune_bertlike ...'
+
 Bootstrap: docker
-From: python:3.12
+From: nvidia/cuda:12.5.1-cudnn-devel-ubuntu22.04
+
+%files
+    llm-requirements.txt /root/cheetah-pip/requirements.txt
 
 %post
-    pip install numpy
-    pip install click
-    pip install torch==2.6.0
-    pip install torch-geometric
-    pip install transformers[torch]
-    pip install datasets
-    pip install tensorboard
-    pip install matplotlib scikit-learn
-    pip install libclang==12.0.0
-    pip install mcpp
-    pip install tiktoken
+    /bin/bash <<'CHEETAH_LLM_POST'
+    set -euo pipefail
+    export DEBIAN_FRONTEND=noninteractive
+
+    mkdir -p /root/apt-tmp
+    export TMPDIR=/root/apt-tmp
+    mkdir -p /tmp/apt-archives/partial
+    cat >/etc/apt/apt.conf.d/99cheetah-apptainer.conf <<'EOF'
+Dir::Cache::archives "/tmp/apt-archives";
+APT::Sandbox::User "root";
+EOF
+
+    readonly PYTHON_VERSION=3.11.9
+    readonly TZ=Europe/Berlin
+
+    ln -snf "/usr/share/zoneinfo/${TZ}" /etc/localtime && echo "${TZ}" > /etc/timezone
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        ca-certificates curl git locales time unzip wget zip
+
+    mkdir -p /usr/share/man/man1
+    apt-get install -y --no-install-recommends \
+        build-essential gfortran libbz2-dev libc6-dev libffi-dev libgdbm-dev \
+        libncursesw5-dev libreadline-dev libsqlite3-dev \
+        libssl-dev tar tk-dev zlib1g-dev \
+        p7zip-full wget
+
+    cd /
+    wget -q "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz"
+    tar -xf "Python-${PYTHON_VERSION}.tar.xz"
+    cd "Python-${PYTHON_VERSION}"
+    ./configure --enable-optimizations
+    make -j "$(nproc)"
+    make install
+    ln -sf /usr/local/bin/python3 /usr/bin/python
+    ln -sf /usr/local/bin/pip3 /usr/bin/pip
+    cd /
+    rm -rf "Python-${PYTHON_VERSION}" "Python-${PYTHON_VERSION}.tar.xz"
+
+    pip install --no-cache-dir --upgrade pip setuptools wheel
+
+    python -m venv /opt/llm-venv
+    # shellcheck disable=SC1091
+    source /opt/llm-venv/bin/activate
+    pip install --no-cache-dir -r /root/cheetah-pip/requirements.txt
+    deactivate || true
+    rm -rf /root/cheetah-pip
+    rm -rf /root/apt-tmp /tmp/apt-archives
+
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+CHEETAH_LLM_POST
+
+%environment
+    export TZ=Europe/Berlin
+    export LC_ALL=C.UTF-8
+    export PYTHONDONTWRITEBYTECODE=1
+    export PYTHONUNBUFFERED=1
+    export PATH="/opt/llm-venv/bin:${PATH}"
+
+%runscript
+    exec "$@"

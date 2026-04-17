@@ -1,3 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+# shellcheck source=/dev/null
+. scripts/apptainer_cheetah.sh
 
-apptainer run container.sif python3 src/causal_analysis/dependence.py
+_cheetah_run container.sif python -m causal_analysis.dependence

@@ -1,4 +1,4 @@
-import click
+import argparse
 import numpy as np
 from pathlib import Path
 from tqdm import tqdm
@@ -6,6 +6,7 @@ from datasets import load_from_disk
 from sklearn.metrics import f1_score, roc_curve, average_precision_score
 
 NUM_STEPS = 100
+
 
 def calculate_vul_det_score(ground_truth, predictions, target_fpr=0.005):
     # stolen from: https://github.com/DLVulDet/PrimeVul/blob/6f54687c84947b1d17486495440b37030d147289/calc_vd_score.py#L6C1-L43C33
@@ -47,9 +48,8 @@ def calculate_vul_det_score(ground_truth, predictions, target_fpr=0.005):
 
     return vds
 
-@click.command()
-@click.option("--data", "-d", required=True, type=click.Path(file_okay=False, dir_okay=True, exists=True, path_type=Path), help="Huggingface datset directory.")
-def classify(data):
+
+def run_classify(data: Path) -> None:
     hf_path = data / "sast" / "hf"
     dataset = load_from_disk(hf_path)
 
@@ -90,5 +90,12 @@ def classify(data):
         print(f"f1: {test_f1_score}\nvds: {test_vds_score}\nauprc: {test_average_precision_score}")
 
 
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("--data", "-d", type=Path, required=True)
+    args = p.parse_args()
+    run_classify(args.data)
+
+
 if __name__ == "__main__":
-    classify()
+    main()

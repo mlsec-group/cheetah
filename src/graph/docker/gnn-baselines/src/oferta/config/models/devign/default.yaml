@@ -1,4 +1,0 @@
-input_dim: ${models.w2v.vector_size}
-graph_embed_size: 200
-num_timesteps: 6
-dropout: 0.3

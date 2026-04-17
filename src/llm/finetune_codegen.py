@@ -1,7 +1,7 @@
+import argparse
 import os
 from typing import Optional, Union, Tuple, List
 
-import click
 import torch
 import torch.nn.functional as F
 from datasets import load_from_disk
@@ -115,10 +115,7 @@ def tokenize(sample, tokenizer, truncation_length):
     return tokenizer(sample["texts"], truncation=True, max_length=truncation_length)
 
 
-@click.command()
-@click.argument("dataset_dir")
-@click.argument("uid", default=None)
-def main(dataset_dir, uid):
+def run_finetune_codegen(dataset_dir: str, uid: Optional[str] = None) -> None:
     tokenizer = AutoTokenizer.from_pretrained("Salesforce/codegen25-7b-multi_P", trust_remote_code=True, revision="c936d25f73e74984748a5ba39151b6bc7a056e2e")
     model = Classifier.from_pretrained("Salesforce/codegen25-7b-multi_P", device_map="auto", torch_dtype=torch.bfloat16, revision="c936d25f73e74984748a5ba39151b6bc7a056e2e")
 
@@ -130,9 +127,12 @@ def main(dataset_dir, uid):
 
     # find uid
     if uid is None:
-        uid = 0
-        while os.path.isdir(os.path.join(final_model_path, uid)) or os.path.isdir(os.path.join(tensorboard_path, uid)):
-            uid += 1
+        uid_i = 0
+        while os.path.isdir(os.path.join(final_model_path, str(uid_i))) or os.path.isdir(
+            os.path.join(tensorboard_path, str(uid_i))
+        ):
+            uid_i += 1
+        uid = str(uid_i)
     final_model_path = os.path.join(final_model_path, uid)
     tensorboard_path = os.path.join(tensorboard_path, uid)
 
@@ -186,6 +186,14 @@ def main(dataset_dir, uid):
 
     tokenizer.pad_token = tokenizer.eos_token
     trainer.train()
+
+
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("dataset_dir")
+    p.add_argument("uid", nargs="?", default=None)
+    args = p.parse_args()
+    run_finetune_codegen(args.dataset_dir, args.uid)
 
 
 if __name__ == "__main__":

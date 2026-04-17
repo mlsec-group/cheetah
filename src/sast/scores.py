@@ -1,4 +1,4 @@
-import click
+import argparse
 import json
 import re
 from pathlib import Path
@@ -79,9 +79,7 @@ def calculate_semgrep_scores(fpath):
 
     return scores
 
-@click.command()
-@click.option("--data", "-d", required=True, type=click.Path(file_okay=False, dir_okay=True, exists=True, path_type=Path), help="sast/ directory.")
-def calculate_scores(data):
+def run_calculate_scores(data: Path) -> None:
     hf_in_path = data / "hf"
     rats_path = data / "sast" / "rats"
     cppcheck_path = data / "sast" / "cppcheck"
@@ -118,5 +116,12 @@ def calculate_scores(data):
     sast_dataset.save_to_disk(hf_sast_path)
 
 
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("--data", "-d", type=Path, required=True)
+    args = p.parse_args()
+    run_calculate_scores(args.data)
+
+
 if __name__ == "__main__":
-    calculate_scores()
+    main()
