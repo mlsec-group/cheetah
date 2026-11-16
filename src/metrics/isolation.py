@@ -1,20 +1,26 @@
 import argparse
-import pickle
-import numpy as np
 import json
-import autosklearn.metrics
-from autosklearn.classification import AutoSklearnClassifier as Classifier
+import pickle
 from pathlib import Path
+
+import autosklearn.metrics
+import numpy as np
+from autosklearn.classification import AutoSklearnClassifier as Classifier
 from datasets import load_from_disk
-
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
-    f1_score, precision_score, recall_score, roc_auc_score, average_precision_score,
-    matthews_corrcoef, balanced_accuracy_score,
+    average_precision_score,
+    balanced_accuracy_score,
+    f1_score,
+    matthews_corrcoef,
+    precision_score,
+    recall_score,
+    roc_auc_score,
 )
+from sklearn.preprocessing import StandardScaler
 
-from metrics.config import TOTAL_TIME, N_JOBS, BEST_MI as BEST
-from metrics.util import calculate_vul_det_score, best_threshold
+from metrics.config import BEST_MI as BEST
+from metrics.config import N_JOBS, TOTAL_TIME
+from metrics.util import best_threshold, calculate_vul_det_score
 
 
 def run_isolation(data_dir: Path, job_id: int) -> None:
@@ -25,7 +31,7 @@ def run_isolation(data_dir: Path, job_id: int) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Load data
-    datasets = load_from_disk(data_dir)
+    datasets = load_from_disk(str(data_dir))
     relevant_metrics = [BEST[metric_no]]
 
     train_features = np.array([datasets["train"][k] for k in relevant_metrics]).T

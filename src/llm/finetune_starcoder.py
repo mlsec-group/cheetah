@@ -1,20 +1,27 @@
 import argparse
-import os
+from pathlib import Path
+from typing import List, Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
-
-from typing import Optional, Union, Tuple, List
-
 from datasets import load_from_disk
-
-from transformers import DataCollatorWithPadding
-from transformers import TrainingArguments, Trainer
-from transformers import AutoTokenizer, Starcoder2ForSequenceClassification
+from sklearn.metrics import (
+    accuracy_score,
+    balanced_accuracy_score,
+    f1_score,
+    matthews_corrcoef,
+)
+from transformers import (
+    AutoTokenizer,
+    DataCollatorWithPadding,
+    Starcoder2ForSequenceClassification,
+    Trainer,
+    TrainingArguments,
+)
 from transformers.cache_utils import Cache
 from transformers.modeling_outputs import SequenceClassifierOutputWithPast
 
-from sklearn.metrics import matthews_corrcoef, accuracy_score, f1_score, balanced_accuracy_score
+from paths import model_slug, resolve_model_path
 
 
 class Classifier(Starcoder2ForSequenceClassification):
@@ -117,26 +124,18 @@ def tokenize(sample, tokenizer, truncation_length):
     return tokenizer(sample["texts"], truncation=True, max_length=truncation_length)
 
 
-def run_finetune_starcoder(dataset_dir: str, uid: Optional[str] = None) -> None:
-    tokenizer = AutoTokenizer.from_pretrained("bigcode/starcoder2-7b")
-    model = Classifier.from_pretrained("bigcode/starcoder2-7b", device_map="auto", torch_dtype=torch.bfloat16)
+def run_finetune_starcoder(dataset_dir: Path, uid: int) -> None:
+    base_model = "bigcode/starcoder2-7b"
+    slug = model_slug(base_model)
+    tokenizer = AutoTokenizer.from_pretrained(resolve_model_path(base_model))
+    model = Classifier.from_pretrained(resolve_model_path(base_model), device_map="auto", torch_dtype=torch.bfloat16)
 
-    dataset = load_from_disk(dataset_dir)
+    dataset = load_from_disk(str(dataset_dir / "hf"))
 
-    final_model_path = os.path.join("hf-model", "bigcode/starcoder2-7b".replace("/", "__"))
-    tensorboard_path = os.path.join("tb_logs", "bigcode/starcoder2-7b".replace("/", "__"))
-    os.makedirs(final_model_path, exist_ok=True)
-
-    # find uid
-    if uid is None:
-        uid_i = 0
-        while os.path.isdir(os.path.join(final_model_path, str(uid_i))) or os.path.isdir(
-            os.path.join(tensorboard_path, str(uid_i))
-        ):
-            uid_i += 1
-        uid = str(uid_i)
-    final_model_path = os.path.join(final_model_path, uid)
-    tensorboard_path = os.path.join(tensorboard_path, uid)
+    final_model_path = dataset_dir / "hf-model" / slug / str(uid)
+    tensorboard_path = dataset_dir / "tb_logs" / slug / str(uid)
+    final_model_path.mkdir(parents=True, exist_ok=True)
+    tensorboard_path.mkdir(parents=True, exist_ok=True)
 
     model_max_length = 512 # taken from PrimeVul
     print(f"Tokenizing datasets with maximum length {model_max_length}")
@@ -146,7 +145,7 @@ def run_finetune_starcoder(dataset_dir: str, uid: Optional[str] = None) -> None:
     dataset = dataset.map(tokenize_with_tokenizer, batched=True, num_proc=None, remove_columns=columns_to_remove, load_from_cache_file=False)
     NUMBER_TRAIN_SAMPLES = int(len(dataset["train"]) * 0.9)
     print(f"Selecting {NUMBER_TRAIN_SAMPLES} of {len(dataset['train'])} samples for training")
-    train_set = dataset["train"].shuffle(load_from_cache_file=False).select(range(NUMBER_TRAIN_SAMPLES))
+    train_set = dataset["train"].shuffle(load_from_cache_file=False, seed=uid).select(range(NUMBER_TRAIN_SAMPLES))
     val_set = dataset["val"]
 
     positives = torch.sum(torch.as_tensor(train_set["labels"]) == 1)
@@ -157,8 +156,8 @@ def run_finetune_starcoder(dataset_dir: str, uid: Optional[str] = None) -> None:
     training_args = TrainingArguments(
         output_dir=final_model_path,
         num_train_epochs=4,
-        per_device_train_batch_size=4,
-        gradient_accumulation_steps=4*4*2,
+        per_device_train_batch_size=8,
+        gradient_accumulation_steps=8,
         per_device_eval_batch_size=8,
         warmup_steps=2000,
         weight_decay=0.01,
@@ -195,8 +194,8 @@ def run_finetune_starcoder(dataset_dir: str, uid: Optional[str] = None) -> None:
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("dataset_dir")
-    p.add_argument("uid", nargs="?", default=None)
+    p.add_argument("dataset_dir", type=Path)
+    p.add_argument("uid", type=int)
     args = p.parse_args()
     run_finetune_starcoder(args.dataset_dir, args.uid)
 

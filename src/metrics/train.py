@@ -1,34 +1,45 @@
 import argparse
-import pickle
-import numpy as np
 import json
-import autosklearn.metrics
-from autosklearn.classification import AutoSklearnClassifier as Classifier
+import pickle
 from pathlib import Path
+
+import autosklearn.metrics
+import numpy as np
+from autosklearn.classification import AutoSklearnClassifier as Classifier
 from datasets import load_from_disk
-
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
-    f1_score, precision_score, recall_score, roc_auc_score, average_precision_score,
-    matthews_corrcoef, balanced_accuracy_score,
+    average_precision_score,
+    balanced_accuracy_score,
+    f1_score,
+    matthews_corrcoef,
+    precision_score,
+    recall_score,
+    roc_auc_score,
 )
+from sklearn.preprocessing import StandardScaler
 
-from metrics.config import TOTAL_TIME, N_JOBS, MAX_NUM_METRICS, BEST_MRMR as SELECTED_METRICS
-from metrics.util import calculate_vul_det_score, best_threshold
+from metrics.config import BEST_MRMR as SELECTED_METRICS
+from metrics.config import MAX_NUM_METRICS, N_JOBS, TOTAL_TIME
+from metrics.util import best_threshold, calculate_vul_det_score
+
+from paths import model_slug
 
 
-def run_train_autosklearn(data_dir: Path, metric_subset: bool, job_id: int) -> None:
+def run_train_autosklearn(data_dir: Path, dataset_name: str, base_model: str, metric_subset: bool, uid: int) -> None:
     num_metrics = len(SELECTED_METRICS)
     if metric_subset:
-        num_metrics = (job_id % num_metrics) + 1
+        num_metrics = (uid % num_metrics) + 1
     selected_metrics = SELECTED_METRICS[:num_metrics]
 
     # Output directory
-    output_dir = data_dir / "autosklearn-model" / str(num_metrics) / str(job_id)
+    if metric_subset:
+        output_dir = data_dir / dataset_name / "autosklearn-model" / str(num_metrics) / str(uid)
+    else:
+        output_dir = data_dir / dataset_name / "hf-model" / model_slug(base_model) / str(uid) / "autosklearn-model-10min"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Load data
-    datasets = load_from_disk(data_dir)
+    datasets = load_from_disk(str(data_dir / dataset_name / f"mcpp-{model_slug(base_model)}"))
     train_features = np.array([datasets["train"][k] for k in selected_metrics]).T
     val_features = np.array([datasets["val"][k] for k in selected_metrics]).T
     test_features = np.array([datasets["test"][k] for k in selected_metrics]).T
@@ -74,7 +85,7 @@ def run_train_autosklearn(data_dir: Path, metric_subset: bool, job_id: int) -> N
     prediction_scores = automl.predict_proba(val_scaled)[:, 1]
     threshold = best_threshold(f1_score, val_labels, prediction_scores)
     prediction_scores = automl.predict_proba(test_scaled)[:, 1]
-    predictions = prediction_scores > threshold
+    predictions = (prediction_scores > threshold).astype(int)
     metrics = {
         "AUC": roc_auc_score(test_labels, prediction_scores),
         "AP": average_precision_score(test_labels, prediction_scores),
@@ -102,15 +113,17 @@ def run_train_autosklearn(data_dir: Path, metric_subset: bool, job_id: int) -> N
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--data-dir", type=Path, required=True)
+    p.add_argument("--dataset-name", type=str, required=True)
+    p.add_argument("--base-model", type=str, required=True)
     p.add_argument(
         "--metric-subset/--no-metric-subset",
         dest="metric_subset",
         default=False,
         action=argparse.BooleanOptionalAction,
     )
-    p.add_argument("--job-id", type=int, required=True)
+    p.add_argument("--uid", type=int, required=True)
     args = p.parse_args()
-    run_train_autosklearn(args.data_dir, args.metric_subset, args.job_id)
+    run_train_autosklearn(args.data_dir, args.dataset_name, args.base_model, args.metric_subset, args.uid)
 
 
 if __name__ == "__main__":

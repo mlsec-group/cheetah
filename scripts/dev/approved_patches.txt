@@ -1,0 +1,8 @@
+# Experiment-code files that may differ from the baseline commit.
+# One path per line. Each entry must have an approved item in docs/reproduction-report.md.
+src/llm/cross_information.py
+src/causal_analysis/correlation.py
+src/causal_analysis/dependence.py
+src/causal_analysis/access.py
+src/llm/finetune_codegen.py
+src/llm/finetune_starcoder.py

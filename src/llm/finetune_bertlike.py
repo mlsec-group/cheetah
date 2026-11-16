@@ -1,18 +1,27 @@
 import argparse
-import os
 import math
-from typing import Optional, Union, Tuple
+from pathlib import Path
+from typing import Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
 from datasets import load_from_disk
-
-from transformers import DataCollatorWithPadding
-from transformers import TrainingArguments, Trainer
-from transformers import AutoTokenizer, RobertaForSequenceClassification
+from sklearn.metrics import (
+    accuracy_score,
+    balanced_accuracy_score,
+    f1_score,
+    matthews_corrcoef,
+)
+from transformers import (
+    AutoTokenizer,
+    DataCollatorWithPadding,
+    RobertaForSequenceClassification,
+    Trainer,
+    TrainingArguments,
+)
 from transformers.modeling_outputs import SequenceClassifierOutput
 
-from sklearn.metrics import matthews_corrcoef, accuracy_score, f1_score, balanced_accuracy_score
+from paths import model_slug, resolve_model_path
 
 
 class Classifier(RobertaForSequenceClassification):
@@ -20,6 +29,7 @@ class Classifier(RobertaForSequenceClassification):
         config.num_labels = 1
         self.pos_weight = 1
         super().__init__(config)
+
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
@@ -94,27 +104,19 @@ def tokenize(sample, tokenizer, truncation_length):
 
 
 def run_finetune_bertlike(
-    dataset_dir: str, base_model: str = "microsoft/unixcoder-base-nine", uid: Optional[str] = None
+    dataset_dir: Path, base_model: str = "microsoft/unixcoder-base-nine", uid: int = 0
 ) -> None:
-    tokenizer = AutoTokenizer.from_pretrained(base_model)
-    model = Classifier.from_pretrained(base_model, device_map="auto")
+    resolved_model = resolve_model_path(base_model)
+    slug = model_slug(base_model)
+    tokenizer = AutoTokenizer.from_pretrained(resolved_model)
+    model = Classifier.from_pretrained(resolved_model, device_map="auto")
 
-    dataset = load_from_disk(dataset_dir)
+    dataset = load_from_disk(str(dataset_dir / "hf"))
 
-    final_model_path = os.path.join("hf-model", base_model.replace("/", "__"))
-    tensorboard_path = os.path.join("tb_logs", base_model.replace("/", "__"))
-    # find uid
-    os.makedirs(final_model_path, exist_ok=True)
-
-    if uid is None:
-        uid_i = 0
-        while os.path.isdir(os.path.join(final_model_path, str(uid_i))) or os.path.isdir(
-            os.path.join(tensorboard_path, str(uid_i))
-        ):
-            uid_i += 1
-        uid = str(uid_i)
-    final_model_path = os.path.join(final_model_path, uid)
-    tensorboard_path = os.path.join(tensorboard_path, uid)
+    final_model_path = dataset_dir / "hf-model" / slug / str(uid)
+    tensorboard_path = dataset_dir / "tb_logs" / slug / str(uid)
+    final_model_path.mkdir(parents=True, exist_ok=True)
+    tensorboard_path.mkdir(parents=True, exist_ok=True)
 
     # find the maximum supported length of the model
     # do not ask, why this needs to be so complicated, nobody knows
@@ -129,7 +131,7 @@ def run_finetune_bertlike(
     dataset = dataset.map(tokenize_with_tokenizer, batched=True, num_proc=None, remove_columns=columns_to_remove, load_from_cache_file=False)
     NUMBER_TRAIN_SAMPLES = int(len(dataset["train"]) * 0.9)
     print(f"Selecting {NUMBER_TRAIN_SAMPLES} of {len(dataset['train'])} samples for training")
-    train_set = dataset["train"].shuffle(load_from_cache_file=False).select(range(NUMBER_TRAIN_SAMPLES))
+    train_set = dataset["train"].shuffle(load_from_cache_file=False, seed=uid).select(range(NUMBER_TRAIN_SAMPLES))
     val_set = dataset["val"]
 
     positives = torch.sum(torch.as_tensor(train_set["labels"]) == 1)
@@ -174,9 +176,9 @@ def run_finetune_bertlike(
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("dataset_dir")
+    p.add_argument("dataset_dir", type=Path)
     p.add_argument("base_model", nargs="?", default="microsoft/unixcoder-base-nine")
-    p.add_argument("uid", nargs="?", default=None)
+    p.add_argument("uid", type=int, nargs="?", default=0)
     args = p.parse_args()
     run_finetune_bertlike(args.dataset_dir, args.base_model, args.uid)
 

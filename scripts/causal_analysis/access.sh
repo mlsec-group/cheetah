@@ -1,19 +1,17 @@
 #!/bin/bash
-#SBATCH --job-name=cheetah-causal-access-per-model
-#SBATCH --output=data/logs/causal-access-per-model/%j.out
-#SBATCH --error=data/logs/causal-access-per-model/%j.err
+#SBATCH --job-name=cheetah-causal-access
+#SBATCH --output=data/logs/causal-access/%j.out
+#SBATCH --error=data/logs/causal-access/%j.err
 #SBATCH --mem=40G
-#SBATCH --partition=cpu-2h
+#SBATCH --partition=cpu-9m
 #SBATCH --cpus-per-task=4
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 
 set -euo pipefail
 # shellcheck source=/dev/null
-. scripts/apptainer_cheetah.sh
+. scripts/config.sh
+# shellcheck source=/dev/null
+. scripts/lib/run_in_sif.sh
 
-for i in $(seq 1 10); do
-  _cheetah_run container.sif python -m causal_analysis.access_per_model "${PWD}/data/mcpp" microsoft/unixcoder-base-nine "${i}"
-done
-
-_cheetah_run container.sif python -m causal_analysis.access
+_cheetah_run "${llm_sif}" python -m causal_analysis.access "${data_dir}/${dataset}"

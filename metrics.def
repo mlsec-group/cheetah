@@ -1,0 +1,41 @@
+# Auto-sklearn metric jobs (train / isolation / leave-one-out). Python 3.9 + src/metrics/metrics-requirements.txt only.
+# Build (repo root): apptainer build .sif/metrics.sif metrics.def
+# Unprivileged host user (needs Apptainer fakeroot/subuid setup): apptainer build --fakeroot .sif/metrics.sif metrics.def
+
+Bootstrap: docker
+From: python:3.9-slim-bookworm
+
+%files
+    src/metrics/metrics-requirements.txt /root/requirements.txt
+
+%post
+    /bin/bash <<'CHEETAH_METRICS_POST'
+    set -euo pipefail
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        build-essential \
+        gcc g++ \
+        swig \
+        libgomp1
+
+    python -m venv /opt/venv
+    /opt/venv/bin/python -m pip install --no-cache-dir --upgrade pip wheel
+    /opt/venv/bin/python -m pip install --no-cache-dir 'setuptools>=65.0.0,<81.0.0'
+    /opt/venv/bin/python -m pip install --no-cache-dir -r /root/requirements.txt
+    rm -f /root/requirements.txt
+
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+CHEETAH_METRICS_POST
+
+%environment
+    export LC_ALL=C.UTF-8
+    export PYTHONDONTWRITEBYTECODE=1
+    export PYTHONUNBUFFERED=1
+    export PATH="/opt/venv/bin:${PATH}"
+
+%runscript
+    exec "$@"

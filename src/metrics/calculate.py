@@ -1,15 +1,17 @@
 import argparse
-from typing import Optional
 import os
-import sys
-from pathlib import Path
 import signal
+import sys
 from contextlib import contextmanager
+from pathlib import Path
+from typing import Optional
 
+from datasets import Dataset, DatasetDict, load_from_disk
 from mcpp import extract_code
-from datasets import load_from_disk, Dataset, DatasetDict
 from transformers import AutoTokenizer
+
 from dataset.dataset import load_data
+from paths import model_slug, resolve_model_path
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 sys.setrecursionlimit(25_000)
@@ -77,14 +79,13 @@ def run_calculate(
                 revision="c936d25f73e74984748a5ba39151b6bc7a056e2e",
             )
         else:
-            tokenizer = AutoTokenizer.from_pretrained(base_model)
+            tokenizer = AutoTokenizer.from_pretrained(resolve_model_path(base_model))
         model_max_length = 1024 if base_model == "microsoft/unixcoder-base-nine" else 512
     if not os.path.exists(os.path.join(os.path.join(data_dir, dataset_name), "hf")):
         # Replicate the create_hf_dataset logic
         raw_path = data_dir / "raw"
         output_path = os.path.join(os.path.join(data_dir, dataset_name), "hf")
         os.makedirs(output_path)
-        raw_data = os.listdir(raw_path)
         train_file = "primevul_train.jsonl"
         test_file = "primevul_test.jsonl"
         val_file = "primevul_valid.jsonl"
@@ -111,12 +112,20 @@ def run_calculate(
         # Combine into a DatasetDict with splits
         hf_dataset = DatasetDict({
             "train": train_dataset,
-            "test": val_dataset,
-            "val": test_dataset
+            "val": val_dataset,
+            "test": test_dataset
         })
 
         hf_dataset.save_to_disk(output_path)
-    dataset = load_from_disk(data_dir / dataset_name / "hf")
+    dataset = load_from_disk(str(data_dir / dataset_name / "hf"))
+    split_sizes = {split: len(dataset[split]) for split in dataset}
+    total_examples = sum(split_sizes.values())
+    output_path = data_dir / dataset_name / f"mcpp-{model_slug(base_model) if base_model else ''}".rstrip("-")
+    print(
+        f"[metrics.calculate] dataset={dataset_name} splits={split_sizes} total={total_examples} "
+        f"truncate={truncate} num_proc={num_cpus} output={output_path}",
+        flush=True,
+    )
 
     truncation_kwargs = {"truncation": False}
     if truncate:
@@ -142,12 +151,12 @@ def run_calculate(
             traceback.print_exc()
         return result
 
+    print(f"[metrics.calculate] starting mcpp map over {total_examples} examples", flush=True)
     dataset = dataset.map(add_features, batched=False, num_proc=num_cpus, load_from_cache_file=False)
+    print(f"[metrics.calculate] mcpp map finished, saving to {output_path}", flush=True)
 
-    model_suffix = ""
-    if base_model is not None:
-        model_suffix = base_model.replace("/", "__")
-    dataset.save_to_disk(data_dir / dataset_name / f"mcpp-{model_suffix}")
+    dataset.save_to_disk(output_path)
+    print(f"[metrics.calculate] done", flush=True)
 
 
 def main() -> None:

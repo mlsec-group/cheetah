@@ -1,7 +1,8 @@
 import argparse
 from pathlib import Path
-from tqdm import tqdm
+
 from datasets import load_from_disk
+from tqdm import tqdm
 
 
 def run_hf_to_dir(data: Path, force: bool) -> None:

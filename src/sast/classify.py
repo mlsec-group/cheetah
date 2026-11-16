@@ -1,9 +1,10 @@
 import argparse
-import numpy as np
 from pathlib import Path
-from tqdm import tqdm
+
+import numpy as np
 from datasets import load_from_disk
-from sklearn.metrics import f1_score, roc_curve, average_precision_score
+from sklearn.metrics import average_precision_score, f1_score, roc_curve
+from tqdm import tqdm
 
 NUM_STEPS = 100
 
@@ -65,12 +66,6 @@ def run_classify(data: Path) -> None:
         # Transform
         #train_features += 1
         #test_features += 1
-
-        min_val = np.min(train_features)
-        max_val = np.max(train_features)
-
-        #train_features /= max_val
-        #test_features /= max_val
 
         best_score = -1
         best_threshold = -1

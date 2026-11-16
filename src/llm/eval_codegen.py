@@ -1,22 +1,32 @@
 import argparse
-import os
 import json
+from pathlib import Path
+from typing import List, Optional, Tuple, Union
 
+import numpy as np
 import torch
 import torch.nn.functional as F
-import numpy as np
-
-from tqdm.auto import tqdm
 from datasets import load_from_disk
-from transformers import LlamaForSequenceClassification, AutoTokenizer, DataCollatorWithPadding
 from sklearn.metrics import (
-    balanced_accuracy_score, f1_score, precision_score, recall_score,
-    matthews_corrcoef, average_precision_score, roc_auc_score, roc_curve
+    average_precision_score,
+    balanced_accuracy_score,
+    f1_score,
+    matthews_corrcoef,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    roc_curve,
+)
+from tqdm.auto import tqdm
+from transformers import (
+    AutoTokenizer,
+    DataCollatorWithPadding,
+    LlamaForSequenceClassification,
 )
 from transformers.cache_utils import Cache
 from transformers.modeling_outputs import SequenceClassifierOutputWithPast
 
-from typing import Optional, Union, Tuple, List
+from paths import model_slug, resolve_model_path
 
 
 class Classifier(LlamaForSequenceClassification):
@@ -171,6 +181,7 @@ def calc_metrics(prediction_scores, labels, threshold=0.5):
 def evaluate_model(model, tokenizer, val_set, do_round=False):
     device = next(model.parameters()).device
     collator = DataCollatorWithPadding(tokenizer, padding=True)
+
     @torch.no_grad()
     def create_logits(sample):
         inputs = collator(sample)
@@ -180,7 +191,7 @@ def evaluate_model(model, tokenizer, val_set, do_round=False):
 
         return dict(logits=logits.cpu().flatten().tolist())
 
-    logits = val_set.map(create_logits, batched=True, batch_size=8, num_proc=1, load_from_cache_file=False)
+    logits = val_set.map(create_logits, batched=True, batch_size=8, num_proc=None, load_from_cache_file=False)
 
     logits = torch.as_tensor(logits["logits"])
     predictions = torch.sigmoid(logits)
@@ -192,22 +203,21 @@ def evaluate_checkpoint(checkpoint_path, tokenizer, val_set):
     model = Classifier.from_pretrained(checkpoint_path, torch_dtype=torch.bfloat16, device_map="auto")
     metrics, predictions = evaluate_model(model, tokenizer, val_set)
 
-    with open(os.path.join(checkpoint_path, "results.json"), "w", encoding="utf8") as f:
+    with open(checkpoint_path / "results.json", "w", encoding="utf8") as f:
         json.dump(metrics, f)
-    with open(os.path.join(checkpoint_path, "predictions.json"), "w", encoding="utf8") as f:
+    with open(checkpoint_path / "predictions.json", "w", encoding="utf8") as f:
         json.dump(predictions, f)
 
-    print(json.dumps(metrics, indent=1))
+    print(json.dumps(metrics, indent=4))
 
 
-def run_eval_codegen(dataset_path: str, uid: str) -> None:
-    final_model_path = os.path.join("hf-model", "Salesforce/codegen25-7b-multi_P".replace("/", "__"))
-    final_model_path = os.path.join(final_model_path, uid)
-    tokenizer = AutoTokenizer.from_pretrained(
-        "Salesforce/codegen25-7b-multi_P", trust_remote_code=True, revision="c936d25f73e74984748a5ba39151b6bc7a056e2e"
-    )
+def run_eval_codegen(dataset_dir: Path, uid: str) -> None:
+    base_model = "Salesforce/codegen25-7b-multi_P"
+    slug = model_slug(base_model)
+    final_model_path = dataset_dir / "hf-model" / slug / str(uid)
+    tokenizer = AutoTokenizer.from_pretrained(resolve_model_path(base_model), trust_remote_code=True, revision="c936d25f73e74984748a5ba39151b6bc7a056e2e")
 
-    dataset = load_from_disk(dataset_path)["test"]
+    dataset = load_from_disk(str(dataset_dir / "hf"))["test"]
     model_max_length = 512
     print(f"Tokenizing datasets with maximum length {model_max_length}")
     tokenize_with_tokenizer = lambda s: tokenize(s, tokenizer, model_max_length)
@@ -218,16 +228,16 @@ def run_eval_codegen(dataset_path: str, uid: str) -> None:
     )
     tokenizer.pad_token = tokenizer.eos_token
 
-    for checkpoint in tqdm(os.listdir(final_model_path)):
-        evaluate_checkpoint(os.path.join(final_model_path, checkpoint), tokenizer, dataset)
+    for checkpoint in tqdm(final_model_path.iterdir()):
+        evaluate_checkpoint(checkpoint, tokenizer, dataset)
 
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("dataset_path")
+    p.add_argument("dataset_dir", type=Path)
     p.add_argument("uid")
     args = p.parse_args()
-    run_eval_codegen(args.dataset_path, args.uid)
+    run_eval_codegen(args.dataset_dir, args.uid)
 
 
 if __name__ == "__main__":

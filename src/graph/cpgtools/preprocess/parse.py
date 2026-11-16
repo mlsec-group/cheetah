@@ -1,7 +1,7 @@
 import argparse
 import json
-from pathlib import Path
 import subprocess
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from loguru import logger as log

@@ -1,13 +1,15 @@
 import argparse
 import json
-from pathlib import Path
-import statistics
 import math
+import statistics
+from pathlib import Path
 
 from metrics.config import BEST_MI as BEST
 
 
 def aggregate(results_list):
+    if not results_list:
+        return {}
     if len(results_list) == 1:
         ret = {}
         results = results_list[0]
@@ -25,6 +27,8 @@ def aggregate(results_list):
     for k, vs in all_results.items():
         ret[f"{k}_mu"] = statistics.mean(vs)
         quantiles = statistics.quantiles(vs, n=10)
+        ret[f"{k}_q1"] = quantiles[0]
+        ret[f"{k}_q9"] = quantiles[9]
         ret[f"{k}_ci"] = 1.644850 * statistics.stdev(vs) / math.sqrt(len(vs))
 
     return ret
@@ -60,10 +64,15 @@ def run_aggregate(result_dir: Path) -> None:
             with open(results_path, "r") as f:
                 result = json.load(f)
             results.append(result)
-        all_results[metric_no] = aggregate(results)
+        if len(results) > 0:
+            all_results[metric_no] = aggregate(results)
 
     with open(result_dir / "aggregated_results.json", "w") as f:
         json.dump(all_results, f, indent=2)
+
+    if not all_results:
+        print(f"No results.json files found under {result_dir}")
+        return
 
     for i, (metric_no, aggregated_results) in enumerate(all_results.items()):
         if i > 0:

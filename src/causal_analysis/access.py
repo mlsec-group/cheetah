@@ -1,50 +1,48 @@
-
+import argparse
 import json
 import math
 import statistics
-
 from pathlib import Path
 
+# relevant_metrics = ["C1", "C2", "C3", "C4", "V1", "V3", "V6", "V7", "V8", "V10", "x1", "x2", "x3", "x4", "t1", "t2", "t3", "s1", "s2", "s3", "s4", "m1", "m2"]
 
-relevant_metrics = ["C1", "C2", "C3", "C4", "V1", "V3", "V6", "V7", "V8", "V10", "x1", "x2", "x3", "x4", "t1", "t2", "t3", "s1", "s2", "s3", "s4", "m1", "m2"]
+# MAPPING = {
+#     "C1": "C1",
+#     "C2": "C2",
+#     "C3": "C3",
+#     "C4": "C4",
+#     "V1": "C5",
+#     "V3": "M3",
+#     "V6": "C6",
+#     "V7": "C7",
+#     "V8": "C8",
+#     "V10": "S5",
+#     "x1":  "C9",
+#     "x2": "C10",
+#     "x3": "C11",
+#     "x4": "C12",
+#     "t1": "T1",
+#     "t2": "T2",
+#     "t3": "T3",
+#     "s1": "S1",
+#     "s2": "S2",
+#     "s3": "S3",
+#     "s4": "S4",
+#     "m1": "M1",
+#     "m2": "M2",
+# }
+# INVERSE_MAPPING = {v: k for k,v in MAPPING.items()}
 
-MAPPING = {
-    "C1": "C1",
-    "C2": "C2",
-    "C3": "C3",
-    "C4": "C4",
-    "V1": "C5",
-    "V3": "M3",
-    "V6": "C6",
-    "V7": "C7",
-    "V8": "C8",
-    "V10": "S5",
-    "x1":  "C9",
-    "x2": "C10",
-    "x3": "C11",
-    "x4": "C12",
-    "t1": "T1",
-    "t2": "T2",
-    "t3": "T3",
-    "s1": "S1",
-    "s2": "S2",
-    "s3": "S3",
-    "s4": "S4",
-    "m1": "M1",
-    "m2": "M2",
-}
-INVERSE_MAPPING = {v: k for k,v in MAPPING.items()}
-
-sorted_relevant_metrics = ['C11', 'T1', 'C6', 'S5', 'C1', 'M2', 'M3', 'C8', 'C2', 'S4', 'C3', 'C4', 'C7', 'T2', 'S1', 'S2', 'C10', 'C12', 'C9', 'M1', 'T3', 'C5', 'S3']
-sorted_relevant_metrics = [INVERSE_MAPPING[k] for k in sorted_relevant_metrics]
-
+# sorted_relevant_metrics = ['C11', 'T1', 'C6', 'S5', 'C1', 'M2', 'M3', 'C8', 'C2', 'S4', 'C3', 'C4', 'C7', 'T2', 'S1', 'S2', 'C10', 'C12', 'C9', 'M1', 'T3', 'C5', 'S3']
+# sorted_relevant_metrics = [INVERSE_MAPPING[k] for k in sorted_relevant_metrics]
+relevant_metrics = ["S1", "S2", "S3", "S4", "S5", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "M1", "M2", "M3", "T1", "T2", "T3"]
 
 def load_all_r2s(full_path: Path):
     paths = full_path.rglob("r2_results.json")
     results = []
     for path in paths:
         run = int(str(path).replace(str(full_path), "")[1:].split("/", 1)[0])
-        if run > 10:
+        if run > 9:
             continue
         if "checkpoint" in str(path.parent):
             # check if smallest checkpoint
@@ -68,7 +66,7 @@ def aggregate(results_list):
 
     all_results = {k: [] for k in results_list[0].keys()}
     for results in results_list:
-        for k,v in results.items():
+        for k, v in results.items():
             all_results[k].append(v)
 
     ret = {}
@@ -80,13 +78,12 @@ def aggregate(results_list):
     return ret
 
 
-def run_access_r2_aggregate() -> None:
-    models = Path(".") / "hf-model"
-    unixcoder_r2s = load_all_r2s(models / "microsoft__unixcoder-base-nine")
-    pdbert_r2s = load_all_r2s(models / "data__pdbert")
-    codebert_r2s = load_all_r2s(models / "microsoft__codebert-base")
-    starcoder_r2s = load_all_r2s(models / "bigcode__starcoder2-7b")
-    codegen_r2s = load_all_r2s(models / "Salesforce__codegen25-7b-multi_P")
+def run_access_r2_aggregate(dataset_path: Path) -> None:
+    unixcoder_r2s = load_all_r2s(dataset_path / "hf-model" / "microsoft__unixcoder-base-nine")
+    pdbert_r2s = load_all_r2s(dataset_path / "hf-model" / "data__pdbert")
+    codebert_r2s = load_all_r2s(dataset_path / "hf-model" / "microsoft__codebert-base")
+    starcoder_r2s = load_all_r2s(dataset_path / "hf-model" / "bigcode__starcoder2-7b")
+    codegen_r2s = load_all_r2s(dataset_path / "hf-model" / "Salesforce__codegen25-7b-multi_P")
 
     all_results = {
         "unixcoder": aggregate(unixcoder_r2s[:]),
@@ -97,11 +94,11 @@ def run_access_r2_aggregate() -> None:
     }
 
     print("r^2 (information access)")
-    print(",".join([MAPPING[k] for k in sorted_relevant_metrics]))
+    print(",".join([k for k in relevant_metrics]))
     for model_name, results in all_results.items():
         print(model_name)
         print("{", end="")
-        for ik, k in enumerate(sorted_relevant_metrics):
+        for ik, k in enumerate(relevant_metrics):
             if ik < len(relevant_metrics) - 1:
                 print(f"{round(results[k + '_mu'], 4):.4f}, ", end="")
             else:
@@ -110,7 +107,10 @@ def run_access_r2_aggregate() -> None:
 
 
 def main() -> None:
-    run_access_r2_aggregate()
+    p = argparse.ArgumentParser()
+    p.add_argument("dataset_path", type=Path)
+    args = p.parse_args()
+    run_access_r2_aggregate(args.dataset_path)
 
 
 if __name__ == "__main__":

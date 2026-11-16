@@ -1,19 +1,30 @@
 import argparse
 import json
 import math
-
-import torch
-import numpy as np
-
-from tqdm import tqdm
 from pathlib import Path
 
+import numpy as np
+import torch
 from datasets import load_from_disk
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, DataCollatorWithPadding, AutoConfig
 from sklearn.metrics import (
-    balanced_accuracy_score, f1_score, precision_score, recall_score,
-    matthews_corrcoef, average_precision_score, roc_auc_score, roc_curve
+    average_precision_score,
+    balanced_accuracy_score,
+    f1_score,
+    matthews_corrcoef,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    roc_curve,
 )
+from tqdm import tqdm
+from transformers import (
+    AutoConfig,
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    DataCollatorWithPadding,
+)
+
+from paths import model_slug, resolve_model_path
 
 
 def calculate_vul_det_score(ground_truth, predictions, target_fpr=0.005):
@@ -107,6 +118,12 @@ def evaluate_model(model, tokenizer, val_set, do_round=False):
 
 def evaluate_checkpoint(checkpoint_path, tokenizer, val_set):
     model = AutoModelForSequenceClassification.from_pretrained(checkpoint_path, torch_dtype=torch.float16, device_map="auto")
+    param = next(model.parameters())
+    print(
+        f"[eval] checkpoint={checkpoint_path} | torch.cuda.is_available()={torch.cuda.is_available()} | "
+        f"device_count={torch.cuda.device_count()} | model_device={param.device} | dtype={param.dtype}",
+        flush=True,
+    )
     metrics, predictions = evaluate_model(model, tokenizer, val_set)
 
     with open(checkpoint_path / "results.json", "w", encoding="utf8") as f:
@@ -119,7 +136,7 @@ def tokenize(sample, tokenizer, truncation_length):
     return tokenizer(sample["texts"], truncation=True, max_length=truncation_length)
 
 
-def collect_checkpoints(path):
+def collect_checkpoints(path: Path):
     if not path.is_dir():
         return []
 
@@ -129,34 +146,34 @@ def collect_checkpoints(path):
             pass
         ret.append(path)
 
-
     for p in path.iterdir():
         ret.extend(collect_checkpoints(p))
 
     return ret
 
 
-def run_eval_bertlike(models_path: Path, dataset_dir: str, base_model: str = "microsoft/unixcoder-base-nine") -> None:
-    resolved = models_path / base_model.replace("/", "__")
-    if not resolved.is_dir():
+def run_eval_bertlike(dataset_dir: Path, base_model: str = "microsoft/unixcoder-base-nine", array_task_id: int = 0) -> None:
+    slug = model_slug(base_model)
+    final_model_path = dataset_dir / "hf-model" / slug / str(array_task_id)
+    if not final_model_path.is_dir():
         raise ValueError("Provided path should be a directory containing all checkpoints to be tested in respective folders")
 
-    tokenizer = AutoTokenizer.from_pretrained(base_model)
-    model_config = AutoConfig.from_pretrained(base_model)
+    tokenizer = AutoTokenizer.from_pretrained(resolve_model_path(base_model))
+    model_config = AutoConfig.from_pretrained(resolve_model_path(base_model))
     model_max_length = min(
         tokenizer.model_max_length,
         2**int(math.log(model_config.max_position_embeddings, 2)), # biggest possible power of two that is smaller
     )
     print(f"Tokenizing datasets with maximum length {model_max_length}")
     tokenize_with_tokenizer = lambda s: tokenize(s, tokenizer, model_max_length)
-    test_set = load_from_disk(dataset_dir)["test"]
+    test_set = load_from_disk(str(dataset_dir / "hf"))["test"]
     columns_to_remove = [c for c in test_set.column_names if "label" not in c]
     print(f"Removing {columns_to_remove} after tokenization")
     test_set = test_set.map(
         tokenize_with_tokenizer, batched=True, num_proc=None, remove_columns=columns_to_remove, load_from_cache_file=False
     )
 
-    checkpoints = collect_checkpoints(resolved)
+    checkpoints = collect_checkpoints(final_model_path)
 
     for checkpoint in tqdm(checkpoints):
         evaluate_checkpoint(checkpoint, tokenizer, test_set)
@@ -164,11 +181,11 @@ def run_eval_bertlike(models_path: Path, dataset_dir: str, base_model: str = "mi
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("models_path", type=Path)
-    p.add_argument("dataset_dir")
+    p.add_argument("dataset_dir", type=Path)
     p.add_argument("base_model", nargs="?", default="microsoft/unixcoder-base-nine")
+    p.add_argument("array_task_id", nargs="?", default=0)
     args = p.parse_args()
-    run_eval_bertlike(args.models_path, args.dataset_dir, args.base_model)
+    run_eval_bertlike(args.dataset_dir, args.base_model, args.array_task_id)
 
 
 if __name__ == "__main__":

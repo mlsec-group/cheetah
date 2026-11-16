@@ -1,21 +1,19 @@
 import argparse
-from pathlib import Path
-from shutil import rmtree
-from math import ceil
 import json
 import socket
+from math import ceil
+from pathlib import Path
+from shutil import rmtree
 
 import torch
-from transformers import TrainingArguments, IntervalStrategy
-from torch.utils.data import WeightedRandomSampler, DataLoader
-from transformers import Trainer
 from datasets import Dataset
+from torch.utils.data import DataLoader, WeightedRandomSampler
+from transformers import IntervalStrategy, Trainer, TrainingArguments
 
+from graph.callbacks import TorchProfilerCallback
 from graph.datasets.primevul import load
 from graph.gnn import init_model
 from graph.metrics import compute_metrics
-from graph.callbacks import TorchProfilerCallback
-
 
 RUNS_ON_HYDRA = socket.gethostname() == "hydra" or socket.gethostname().startswith("head")
 

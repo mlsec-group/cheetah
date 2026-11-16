@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
 import torch
-from torch import nn
 import torch.nn.functional as F
 import torch_geometric.nn as gnn
+from torch import nn
 from torch_geometric.utils import scatter
 
 from graph.gnn.base import GraphModel, GraphModelConfig

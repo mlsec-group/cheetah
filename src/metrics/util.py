@@ -49,6 +49,6 @@ def best_threshold(metric, labels, scores):
     for t in thresholds:
         try:
             results.append(metric(labels, scores > t))
-        except:
+        except Exception:
             pass
     return thresholds[max(range(len(results)), key=results.__getitem__)]

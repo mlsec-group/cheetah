@@ -1,15 +1,15 @@
 import argparse
 import os
-from typing import List
 from pathlib import Path
 from shutil import rmtree
+from subprocess import PIPE, run
 from tempfile import TemporaryDirectory
+from typing import List
 
 from loguru import logger as log
 
 from graph.cpgtools.paths import joern_scripts_dir
 from graph.cpgtools.util import ParallelProgress
-from subprocess import run, PIPE
 
 
 def export_cpg(in_files: List[Path], out_dir: Path, in_root: Path, joern_memory: str, joern_cores: int):

@@ -2,10 +2,9 @@ from pathlib import Path
 
 from transformers import AutoConfig, AutoModel
 
-from graph.gnn.reveal import Reveal
 from graph.gnn.devign import Devign
 from graph.gnn.dummy import DummyModel
-
+from graph.gnn.reveal import Reveal
 
 MODELS = (Reveal, Devign, DummyModel)
 

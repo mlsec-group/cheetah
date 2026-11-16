@@ -1,8 +1,7 @@
 import argparse
-import math
 import json
+import math
 import statistics
-
 from pathlib import Path
 
 
@@ -35,7 +34,7 @@ def collect_results(path, selection_predicate):
             c_num = int(c.name.rsplit("-")[-1])
             if selection_predicate(c_num, selected_c_num):
                 selected_path = c
-        if selected_path is not None and (c / "results.json").exists():
+        if selected_path is not None and (selected_path / "results.json").exists():
             with open(selected_path / "results.json", "r", encoding="utf8") as f:
                 ret.append(json.load(f))
 
@@ -60,6 +59,8 @@ def aggregate(results_list):
     for k, vs in all_results.items():
         ret[f"{k}_mu"] = statistics.mean(vs)
         quantiles = statistics.quantiles(vs, n=10)
+        ret[f"{k}_q1"] = quantiles[0]
+        ret[f"{k}_q9"] = quantiles[-1]
         ret[f"{k}_ci"] = 1.644850 * statistics.stdev(vs) / math.sqrt(len(vs))
 
     return ret

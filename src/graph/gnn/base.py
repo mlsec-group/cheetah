@@ -1,16 +1,17 @@
-from pathlib import Path
-from dataclasses import dataclass, field, asdict
-from typing import Any, List
 import json
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any, List
 
 import torch
 import torch.nn.functional as F
 import transformers
-from transformers.modeling_outputs import SequenceClassifierOutput
-from transformers import PretrainedConfig, PreTrainedModel, AutoModel
-from transformers.models.roberta.modeling_roberta import RobertaClassificationHead
-from torch_geometric.utils import to_undirected
 from torch_geometric.data import Batch
+from torch_geometric.utils import to_undirected
+from transformers import AutoModel, PretrainedConfig, PreTrainedModel
+from transformers.modeling_outputs import SequenceClassifierOutput
+from transformers.models.roberta.modeling_roberta import RobertaClassificationHead
+
 from graph.datasets.graphs import GraphData
 from graph.node_types import DEFAULT_X_TYPES_RAW
 

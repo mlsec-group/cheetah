@@ -1,10 +1,11 @@
 import argparse
 import json
 import re
-from pathlib import Path
-from datasets import load_from_disk, Dataset, DatasetDict
-from tqdm import tqdm
 from collections import defaultdict
+from pathlib import Path
+
+from datasets import Dataset, DatasetDict, load_from_disk
+from tqdm import tqdm
 
 
 def calculate_rats_score(fpath):

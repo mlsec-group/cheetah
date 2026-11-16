@@ -1,6 +1,7 @@
 import argparse
 import json
 from pathlib import Path
+
 from datasets import Dataset, DatasetDict
 
 
@@ -34,8 +35,8 @@ def run_create_hf_dataset(data: Path, dataset_name: str) -> None:
     # Combine into a DatasetDict with splits
     hf_dataset = DatasetDict({
         "train": train_dataset,
-        "test": val_dataset,
-        "val": test_dataset
+        "val": val_dataset,
+        "test": test_dataset
     })
 
     hf_dataset.save_to_disk(output_path)

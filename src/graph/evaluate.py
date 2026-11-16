@@ -7,9 +7,9 @@ import torch
 from transformers import TrainingArguments
 
 from graph.datasets.primevul import load
-from graph.train import CustomTrainer
-from graph.metrics import compute_metrics
 from graph.gnn import load_model
+from graph.metrics import compute_metrics
+from graph.train import CustomTrainer
 
 
 def evaluate(ds_path: Path, model_path: Path):

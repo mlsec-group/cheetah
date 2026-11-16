@@ -1,9 +1,9 @@
-from typing import List
 from dataclasses import dataclass
+from typing import List
 
 import torch
-from torch import nn
 import torch_geometric.nn as gnn
+from torch import nn
 from torch.nn import functional as F
 
 from graph.gnn.base import GraphModel, GraphModelConfig

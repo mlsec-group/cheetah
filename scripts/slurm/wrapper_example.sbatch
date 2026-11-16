@@ -5,11 +5,11 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=8G
-#SBATCH --output=logs/wrapper-example-%j.out
-#SBATCH --error=logs/wrapper-example-%j.err
+#SBATCH --output=data/logs/wrapper-example-%j.out
+#SBATCH --error=data/logs/wrapper-example-%j.err
 #
 # Submit from repository root:
-#   mkdir -p logs
+#   mkdir -p data/logs
 #   sbatch scripts/slurm/wrapper_example.sbatch
 #
 set -euo pipefail

@@ -1,0 +1,62 @@
+# GPU / PyTorch — training, word2vec, and full pipeline steps that need torch & PyG.
+#
+# Build (from repo root):
+#   apptainer build .sif/gnn.sif gnn.def
+#
+# Run from repo root (CWD visible at same path; add --nv when using GPU):
+#   apptainer exec --nv .sif/gnn.sif bash -lc 'export PYTHONPATH="${PWD}/src" && python -m graph.train --help'
+
+Bootstrap: docker
+From: python:3.11.9-bookworm
+
+# Staged pip inputs live under /root, not /tmp: Apptainer bind-mounts /dev/shm over /tmp during %post.
+%files
+    src/graph/gnn-requirements.txt /root/gnn-pip/requirements.txt
+    src/graph/gnn-extra-requirements.txt /root/gnn-pip/extra-requirements.txt
+
+%post
+    /bin/bash <<'CHEETAH_GNN_TRAINPOST'
+    set -euo pipefail
+    export DEBIAN_FRONTEND=noninteractive
+
+    mkdir -p /root/apt-tmp
+    export TMPDIR=/root/apt-tmp
+    # Apptainer %post: /var (and often /root subpaths) are overlay — apt's partial→final .deb rename
+    # hits EBUSY. /tmp is tmpfs here; _apt cannot read /root (0700), so archives must not live under /root.
+    mkdir -p /tmp/apt-archives/partial
+    cat >/etc/apt/apt.conf.d/99cheetah-apptainer.conf <<'EOF'
+Dir::Cache::archives "/tmp/apt-archives";
+APT::Sandbox::User "root";
+EOF
+
+    readonly TZ=Europe/Berlin
+
+    ln -snf "/usr/share/zoneinfo/${TZ}" /etc/localtime && echo "${TZ}" > /etc/timezone
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        ca-certificates curl git locales time unzip wget zip p7zip-full \
+        build-essential gfortran libgraphviz-dev libpq-dev
+
+    python -m pip install --no-cache-dir --upgrade pip setuptools wheel
+
+    # --- Python venv (training stack, baked into SIF) ---
+    python -m venv /opt/gnn-training-venv
+    /opt/gnn-training-venv/bin/pip install --no-cache-dir -r /root/gnn-pip/requirements.txt
+    /opt/gnn-training-venv/bin/pip install --no-cache-dir -r /root/gnn-pip/extra-requirements.txt
+    rm -rf /root/gnn-pip
+    rm -rf /root/apt-tmp /tmp/apt-archives
+
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+CHEETAH_GNN_TRAINPOST
+
+%environment
+    export TZ=Europe/Berlin
+    export LC_ALL=C.UTF-8
+    export PYTHONDONTWRITEBYTECODE=1
+    export PYTHONUNBUFFERED=1
+    export PATH="/opt/gnn-training-venv/bin:${PATH}"
+
+%runscript
+    exec "$@"

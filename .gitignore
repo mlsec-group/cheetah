@@ -1,7 +1,7 @@
 *.sif
 data/
 assets/
-/sast/
+logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -20,6 +20,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!scripts/lib/
 lib64/
 parts/
 sdist/
@@ -178,3 +179,6 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 assets
+
+# Archives handed over by the authors (paper sources, prompting code and results)
+/*.zip

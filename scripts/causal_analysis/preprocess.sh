@@ -1,44 +1,42 @@
 #!/bin/bash
 #SBATCH --job-name=cheetah-causal-analysis-preprocess
-#SBATCH --partition=gpu-5h
+#SBATCH --partition=gpu-2d
 #SBATCH --constraint=80gb
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --mem=40G
+#SBATCH --mem=160G
 #SBATCH --cpus-per-task=4
 #SBATCH --gpus-per-task=1
-#SBATCH --output=data/logs/causal-analysis-preprocess/%j.out
-#SBATCH --error=data/logs/causal-analysis-preprocess/%j.err
+#SBATCH --output=data/logs/causal-analysis-preprocess/%A-%a.out
+#SBATCH --error=data/logs/causal-analysis-preprocess/%A-%a.err
 #SBATCH --exclude=head022,head076
+#SBATCH --array=0-9
+
+# One array task per run id: predictions on both datasets and embeddings of
+# every fine-tuned model.
 
 set -euo pipefail
-# CWD must be repository root (interactive or sbatch).
 # shellcheck source=/dev/null
-. scripts/apptainer_cheetah.sh
+. scripts/config.sh
+# shellcheck source=/dev/null
+. scripts/lib/run_in_sif.sh
 
-PV="${PWD}/data/primevul"
-PVL="${PWD}/data/primevul-lookaround"
-PDB="${PWD}/data/pdbert"
+export PYTHONUNBUFFERED=1
 
-HF_ENV="${PWD}/huggingface.env"
-for _mcpp_dataset_root in "${PV}" "${PVL}"; do
-  _mcpp_data_dir=$(dirname -- "${_mcpp_dataset_root}")
-  _mcpp_dataset_name=$(basename -- "${_mcpp_dataset_root}")
-  _cheetah_run --env-file "${HF_ENV}" container.sif python -m metrics.calculate \
-    --data-dir "${_mcpp_data_dir}" \
-    --dataset-name "${_mcpp_dataset_name}" \
-    --no-truncate \
-    --base-model microsoft/unixcoder-base-nine
-done
+PV="${data_dir}/${dataset}"
+PVL="${data_dir}/primevul-lookaround"
+uid="${SLURM_ARRAY_TASK_ID:-0}"
 
-for i in $(seq 1 10); do
-  _cheetah_run container.sif python -m llm.add_predictions "${PV}" microsoft/unixcoder-base-nine "${i}"
-done
+for model in "${base_models[@]}"; do
+  echo "[+] add_predictions ${dataset} uid=${uid} model=${model}"
+  _cheetah_run --nv --env-file "${hf_env_file}" "${llm_sif}" \
+      python -m llm.add_predictions "${PV}" "${model}" "${uid}"
 
-for i in $(seq 1 10); do
-  _cheetah_run container.sif python -m llm.add_predictions "${PVL}" microsoft/unixcoder-base-nine "${i}"
-done
+  echo "[+] add_predictions primevul-lookaround uid=${uid} model=${model} (models from ${dataset})"
+  _cheetah_run --nv --env-file "${hf_env_file}" "${llm_sif}" \
+      python -m llm.add_predictions "${PVL}" "${model}" "${uid}" --models-dir "${PV}"
 
-for i in $(seq 1 10); do
-  _cheetah_run container.sif python -m llm.add_embeddings "${PV}" microsoft/unixcoder-base-nine "${i}"
+  echo "[+] add_embeddings ${dataset} uid=${uid} model=${model}"
+  _cheetah_run --nv --env-file "${hf_env_file}" "${llm_sif}" \
+      python -m llm.add_embeddings "${PV}" "${model}" "${uid}"
 done

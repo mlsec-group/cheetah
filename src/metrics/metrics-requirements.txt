@@ -1,0 +1,12 @@
+# Pinned for auto-sklearn 0.15.0 (requires scikit-learn 0.24.x, not 1.x).
+# auto-sklearn imports pkg_resources; setuptools 82+ no longer provides it.
+setuptools>=65.0.0,<81.0.0
+numpy==1.23.5
+scipy>=1.7.0,<1.11.0
+scikit-learn==0.24.2
+auto-sklearn==0.15.0
+datasets>=2.14.0,<3.0.0
+pyarrow>=12.0.0,<15.0.0
+tqdm
+joblib
+loguru

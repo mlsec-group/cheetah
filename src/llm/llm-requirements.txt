@@ -1,0 +1,20 @@
+numpy
+torch==2.6.0
+transformers[torch]==4.43.1
+datasets==5.0.1    # 4.0+ returns Column objects and writes the List feature type; the supplied lookaround dataset needs >=4
+tensorboard
+matplotlib
+scikit-learn
+libclang==12.0.0
+mcpp==1.3.4
+# mcpp 1.3.4 needs tree-sitter 0.25 exactly: it imports QueryCursor (new in
+# 0.25) and calls Language.query (removed in 0.26). Unpinned, every metric
+# silently became 0. The grammar versions used originally are not recorded.
+tree-sitter==0.25.2
+tree-sitter-c==0.24.2
+tree-sitter-cpp==0.23.4
+tiktoken
+openai==1.109.1    # prompting.submit (Batch API); the version used originally is not recorded
+loguru
+joblib
+tqdm

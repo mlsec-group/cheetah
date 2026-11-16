@@ -1,6 +1,4 @@
 import json
-import numpy as np
-
 from pathlib import Path
 
 
@@ -17,6 +15,7 @@ def load_all(path: Path):
         with open(path, "r", encoding="utf8") as f:
             results.append(json.load(f))
     return results
+
 
 def run_cross_f1_diff() -> None:
     models = Path(".") / "hf-model"

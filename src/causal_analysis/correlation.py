@@ -1,23 +1,29 @@
+import argparse
 import json
-import numpy as np
-
 from pathlib import Path
 
-from tqdm import tqdm
-from scipy.stats import pearsonr
+import numpy as np
 from datasets import load_from_disk
+from scipy.stats import pearsonr
+from tqdm import tqdm
 
-def load_all_predictions(path: Path):
-    paths = path.rglob("predictions.json")
+from paths import model_slug
+
+
+def load_all_predictions(model_dir: Path, smallest_checkpoint: bool = True):
+    checkpoints = []
+    for uid in range(10):
+        _checkpoints = list((model_dir/str(uid)).glob("checkpoint-*"))
+        if len(_checkpoints) == 0:
+            raise ValueError(f"No checkpoints found for {model_dir/str(uid)}")
+        if smallest_checkpoint:
+            _checkpoints = sorted(_checkpoints, key=lambda s: int(s.name.split("-")[1]))[0]
+        else:
+            _checkpoints = _checkpoints[-1]
+        checkpoints.append(_checkpoints)
     predictions = []
-    for path in paths:
-        if "checkpoint" in str(path.parent):
-            # check if smallest checkpoint
-            model_root = path.parent.parent
-            smallest_path = min((p for p in model_root.iterdir()), key=lambda p: int(str(p).split("checkpoint-")[-1]))
-            if path.parent != smallest_path:
-                continue
-        with open(path, "r", encoding="utf8") as f:
+    for checkpoint in checkpoints:
+        with open(checkpoint / "predictions.json", "r", encoding="utf8") as f:
             predictions.append(np.asarray(json.load(f)))
     return predictions
 
@@ -34,120 +40,78 @@ def mean_correlation(predictions_one, predictions_two, same):
             correlations.append(pearsonr(predictions_one[i], predictions_two[j]).statistic)
     return np.mean(correlations)
 
-MAPPING = {
-    "C1": "C1",
-    "C2": "C2",
-    "C3": "C3",
-    "C4": "C4",
-    "V1": "C5",
-    "V3": "M3",
-    "V6": "C6",
-    "V7": "C7",
-    "V8": "C8",
-    "V10": "S5",
-    "x1":  "C9",
-    "x2": "C10",
-    "x3": "C11",
-    "x4": "C12",
-    "t1": "T1",
-    "t2": "T2",
-    "t3": "T3",
-    "s1": "S1",
-    "s2": "S2",
-    "s3": "S3",
-    "s4": "S4",
-    "m1": "M1",
-    "m2": "M2",
-}
-INVERSE_MAPPING = {v: k for k,v in MAPPING.items()}
+relevant_metrics = ["S1", "S2", "S3", "S4", "S5", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "M1", "M2", "M3", "T1", "T2", "T3"]
 
-def run_correlation_main() -> None:
-    data = Path("./data/primevul")
-    models = Path(".") / "hf-model"
-    unixcoder_predictions = load_all_predictions(models / "microsoft__unixcoder-base-nine")
-    pdbert_predictions = load_all_predictions(models / "data__pdbert")
-    codebert_predictions = load_all_predictions(models / "microsoft__codebert-base")
-    starcoder_predictions = load_all_predictions(models / "bigcode__starcoder2-7b")
-    codegen_predictions = load_all_predictions(models / "Salesforce__codegen25-7b-multi_P")
-    scm_predictions = load_all_predictions(Path(".") / "sklearn-model/autosklearn-model-10min")
 
-    all_predictions = {
-        "unixcoder": unixcoder_predictions[:10],
-        "pdbert": pdbert_predictions[:10],
-        "codebert": codebert_predictions[:10],
-        "scm": scm_predictions[:10],
-        "codegen": codegen_predictions,
-        "starcoder": starcoder_predictions,
-    }
-    
+def run_correlation_main(dataset_path: Path) -> None:
+    models = dataset_path / "hf-model"
+    base_models = [
+        "microsoft/unixcoder-base-nine",
+        "data/pdbert",
+        "microsoft/codebert-base",
+        "bigcode/starcoder2-7b",
+        "Salesforce/codegen25-7b-multi_P",
+    ]
+    predictions = {base_model: load_all_predictions(models / model_slug(base_model)) for base_model in base_models}
+
     # need to have consistent ordering
-    names = list(all_predictions.keys())
-    longest_name = max(len(n) for n in names)
+    max_namelen = max(len(m) for m in base_models)
     print("Correlation between model predictions:")
-    print(" " * longest_name + " " + " ".join(n[:4].ljust(4) for n in names))
-    for i, row_name in enumerate(names):
-        print(row_name.ljust(longest_name), end="")
-        data1 = all_predictions[row_name]
+    print(" " * max_namelen + " " + " ".join(n[:4].ljust(4) for n in base_models))
+    for i, base_model in enumerate(base_models):
+        print(base_model.ljust(max_namelen), end="")
+        data1 = predictions[base_model]
         for j in range(0, i+1):
-            col_name = names[j]
-            data2 = all_predictions[col_name]
+            other = base_models[j]
+            data2 = predictions[other]
             r = mean_correlation(data1, data2, i == j)
             print(f" {round(r, 2):0.2f}", end="")
         print("")
-    
-    unixcoder_metrics = load_from_disk(data / "mcpp-microsoft__unixcoder-base-nine")["test"]
-    pdbert_metrics = load_from_disk(data / "mcpp-microsoft__codebert-base")["test"]
-    codebert_metrics = load_from_disk(data / "mcpp-microsoft__codebert-base")["test"]
-    starcoder_metrics = load_from_disk(data / "mcpp-microsoft__codebert-base")["test"]
-    codegen_metrics = load_from_disk(data / "mcpp-microsoft__codebert-base")["test"]
-    real_metrics = load_from_disk(data / "mcpp")["test"]
 
+    metrics = {base_model: load_from_disk(dataset_path / f"mcpp-{model_slug(base_model)}")["test"] for base_model in base_models}
+    labels = np.array(metrics[base_models[0]]["labels"])
+    metrics = {base_model: np.array([metrics[base_model][k] for k in relevant_metrics]).T for base_model in base_models}
 
-    relevant_metrics = ["C1", "C2", "C3", "C4", "V1", "V3", "V6", "V7", "V8", "V10", "x1", "x2", "x3", "x4", "t1", "t2", "t3", "s1", "s2", "s3", "s4", "m1", "m2"]
-    labels = np.array(unixcoder_metrics["labels"])
-    unixcoder_metrics = np.array([unixcoder_metrics[k] for k in relevant_metrics]).T
-    pdbert_metrics = np.array([pdbert_metrics[k] for k in relevant_metrics]).T
-    codebert_metrics = np.array([codebert_metrics[k] for k in relevant_metrics]).T
-    codegen_metrics = np.array([codegen_metrics[k] for k in relevant_metrics]).T
-    starcoder_metrics = np.array([starcoder_metrics[k] for k in relevant_metrics]).T
-    real_metrics = np.array([real_metrics[k] for k in relevant_metrics]).T
-
-
-    all_metrics = {
-        "unixcoder": unixcoder_metrics,
-        "pdbert": pdbert_metrics,
-        "codebert": codebert_metrics,
-        "codegen": codegen_metrics,
-        "starcoder": starcoder_metrics,
-    }
     correlations = {}
     for i, k in enumerate(relevant_metrics):
         rs = {}
-        for model_name in all_metrics.keys():
-            r = mean_correlation(all_predictions[model_name], [all_metrics[model_name][:, i]], False)
-            rs[model_name] = r
-        r = mean_correlation([labels], [real_metrics[:, i]], False)
-        rs["label"] = r
+        for base_model in base_models:
+            rs[base_model] = mean_correlation(predictions[base_model], [metrics[base_model][:, i]], False)
+            rs[f"{base_model}-true"] = mean_correlation([labels], [metrics[base_model][:, i]], False)
         correlations[k] = rs
 
-    sorted_relevant_metrics = ['C11', 'T1', 'C6', 'S5', 'C1', 'M2', 'M3', 'C8', 'C2', 'S4', 'C3', 'C4', 'C7', 'T2', 'S1', 'S2', 'C10', 'C12', 'C9', 'M1', 'T3', 'C5', 'S3']
 
     print("Correlation between metric values and model predictions")
-    print("{" + ",".join(sorted_relevant_metrics) + "},")
-    for model_name in correlations[INVERSE_MAPPING[sorted_relevant_metrics[0]]].keys():
-        print(model_name)
+    print("{" + ",".join(relevant_metrics) + "},")
+    for base_model in base_models:
+        print(base_model)
         print("{", end="")
-        for ik, k in enumerate(sorted_relevant_metrics):
-            k = INVERSE_MAPPING[k]
-            if ik < len(sorted_relevant_metrics) - 1:
-                print(f"{round(correlations[k][model_name], 4):.4f}, ", end="")
+        for ik, k in enumerate(relevant_metrics):
+            if ik < len(relevant_metrics) - 1:
+                print(f"{round(correlations[k][base_model], 4):.4f}, ", end="")
             else:
-                print(f"{round(correlations[k][model_name], 4):.4f}", end="")
+                print(f"{round(correlations[k][base_model], 4):.4f}", end="},")
+        print("},")
+
+    print("Correlation between metric values and true labels")
+    print("{" + ",".join(relevant_metrics) + "},")
+    for base_model in base_models:
+        print(base_model)
+        print("{", end="")
+        for ik, k in enumerate(relevant_metrics):
+            base_model_key = f"{base_model}-true"
+            if ik < len(relevant_metrics) - 1:
+                print(f"{round(correlations[k][base_model_key], 4):.4f}, ", end="")
+            else:
+                print(f"{round(correlations[k][base_model_key], 4):.4f}", end="},")
         print("},")
 
 
 def main() -> None:
-    run_correlation_main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("dataset_path", type=Path)
+    args = parser.parse_args()
+    run_correlation_main(args.dataset_path)
 
 
 if __name__ == "__main__":

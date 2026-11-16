@@ -1,108 +1,117 @@
 # Reproducibility: Apptainer, Slurm, and scripts
 
+Known deviations from the paper setup and open issues are listed in [reproduction-report.md](reproduction-report.md).
+
 ## Conventions
 
-- Run all shell scripts with the **repository root as the current working directory** (interactive or Slurm).
-- Inside Apptainer the same path is used as on the host (default mount of the current working directory). Wrappers set `PYTHONPATH="${PWD}/src"`. **No `pip install`** of the repo is required.
-- Python entrypoints are **one module per command**: `python -m <module> ...` (see tables below). Some modules use **argparse subcommands** (e.g. `graph.datasets.primevul preprocess|write-sources|add-graphs`).
+- Run every script with the **repository root as the current working directory**.
+- `scripts/config.sh` defines all shared settings: paths, images, the dataset name and the list of the five LLMs. `src/paths.py` assumes the same layout (data in `<repo>/data`).
+- Each step is `python -m <module> ...` inside an image, started through `_cheetah_run` (`scripts/lib/run_in_sif.sh`), which sets `PYTHONPATH="${PWD}/src"`. The repository is not installed into the images.
+- Stage scripts carry their own `#SBATCH` header and handle exactly one array task (`SLURM_ARRAY_TASK_ID`, default 0). They are submitted through `submit` (`scripts/lib/submit.sh`), which adds job dependencies and creates the log directories.
 
-## Building images (from repo root)
-
-```bash
-./scripts/build.sh   # or manually:
-apptainer build dataset.sif dataset.def
-apptainer build container.sif container.def
-apptainer build auto.sif auto.def
-apptainer build gnn-preprocessing.sif gnn-preprocessing.def
-apptainer build gnn-training.sif gnn-training.def
-```
-
-Requirements files consumed at build time: `llm-requirements.txt`, `auto-requirements.txt`, `dataset-requirements.txt`, `gnn-requirements.txt`, `gnn-requirements-preprocess.txt`, `gnn-extra-requirements.txt`.
-
-## Runtime environment
-
-| Variable | Purpose |
-|----------|---------|
-| `GNN_PREPROCESS_SIF` | Joern/CPG CPU image (default `./gnn-preprocessing.sif`) |
-| `GNN_TRAINING_SIF` | PyTorch/PyG GPU image (default `./gnn-training.sif`) |
-| `HF_HOME`, etc. | Hugging Face cache; load via `huggingface.env` (sourced from `scripts/config.sh`) |
-
-Helper: `. scripts/lib/run_in_sif.sh` defines `run_in_sif` / `_cheetah_run`:
+## Building
 
 ```bash
-. scripts/apptainer_cheetah.sh
-_cheetah_run --nv --env-file huggingface.env container.sif python -m llm.finetune_bertlike ...
+git submodule update --init
+./scripts/build.sh
 ```
 
-## Images ↔ `python -m` modules (typical)
+Builds `.sif/{llm,metrics,cpgtools,gnn}.sif` from the `.def` files in the repository root, downloads PrimeVul to `data/primevul/raw/`, the PDBERT checkpoint to `data/pdbert/`, and builds the SAST tool images from `sast/`, the git submodule [mlsec-group/sast](https://github.com/mlsec-group/sast) (`build.sh` stops if it is not initialised). Steps whose result exists are skipped. Pip requirements are in `src/<package>/*-requirements.txt`.
 
-| Image | Modules (representative) |
-|-------|---------------------------|
-| `gnn-preprocessing.sif` | `graph.cpgtools.preprocess.parse`, `graph.cpgtools.preprocess.export`, `graph.datasets.primevul write-sources` |
-| `gnn-training.sif` | `graph.datasets.primevul` (`preprocess`, `add-graphs`), `graph.train`, `graph.evaluate`, `graph.collect` |
-| `container.sif` | `llm.finetune_*`, `llm.eval_*`, `llm.aggregate_results`, `llm.add_predictions`, `llm.add_embeddings`, `llm.cross_information`, `metrics.calculate`, `causal_analysis.access`, `causal_analysis.cross`, `causal_analysis.correlation`, `causal_analysis.dependence`, `causal_analysis.access_per_model`, `dataset.dataset`, `sast.data`, `sast.scores`, `sast.classify` (when not using external `sast.sif`) |
-| `auto.sif` | `metrics.train`, `metrics.isolation`, `metrics.leaveoneout` |
-| `dataset.sif` | `dataset.dataset`, `sast.data` |
+## Running
 
-## Shell script dependency graph
+```bash
+./scripts/run.sh                          # everything
+./scripts/run.sh metrics causal_analysis  # selected experiments
+slurm=0 ./scripts/run.sh dataset          # in this shell, without Slurm
+DRY_RUN=1 ./scripts/run.sh                # print the submissions
+CHEETAH_ARRAY=0-0 ./scripts/run.sh ...    # restrict every array job to this range
+```
 
-High-level order for end-to-end experiments:
+Experiments: `dataset`, `vulnerability_evaluation`, `metrics`, `causal_analysis`, and `prompting`, which runs only when named: it submits paid requests to the OpenAI Batch API and needs `OPENAI_API_KEY` in the environment and internet access (`OPENAI_API_KEY=… ./scripts/run.sh prompting`; on a cluster whose compute nodes are offline, with `slurm=0` on a login node). An experiment that is not selected is assumed to be finished. Results are printed in the Slurm logs of the aggregate jobs under `data/logs/<job>/`.
+
+A single stage: `sbatch scripts/metrics/calculate.sh` (create its log directory first) or, without Slurm, `SLURM_ARRAY_TASK_ID=3 bash scripts/metrics/calculate.sh`.
+
+## Stage graph
 
 ```mermaid
 flowchart TD
-  subgraph data [Dataset]
-    dr[scripts/dataset/run.sh]
+  ds[dataset/run.sh]
+
+  subgraph vuln [vulnerability_evaluation]
+    ft[llm_finetune/MODEL.sh x10] --> ev[llm_eval/MODEL.sh x10] --> ag[llm_aggregate/MODEL.sh]
+    gp[graphs/preprocess.sh] --> gnn[gnn.sh x20] --> ga[gnn_aggregate.sh]
+    sast[sast.sh]
   end
-  subgraph vuln [Vulnerability_evaluation]
-    vr[scripts/vulnerability_evaluation/run.sh]
-    gnn[scripts/vulnerability_evaluation/gnn.sh]
-    llm[scripts/vulnerability_evaluation/llm.sh]
-    sast[scripts/vulnerability_evaluation/sast.sh]
-    gpre[scripts/vulnerability_evaluation/graphs/preprocess.sh]
+
+  subgraph metrics [metrics]
+    calc[calculate.sh x5] --> iso[isolation.sh x230]
+    calc --> loo[leaveoneout.sh x230]
+    train[train.sh x10]
+    magg[aggregate.sh]
   end
-  subgraph metrics [Metric_analysis]
-    mrun[scripts/metric_analysis/run.sh]
-    mcalc[scripts/metric_analysis/calculate.sh]
-    mtrain[scripts/metric_analysis/train.sh]
-    magg[scripts/metric_analysis/aggregate.sh]
+
+  subgraph causal [causal_analysis]
+    pre[preprocess.sh x10] --> apm[access_per_model.sh x10] --> acc[access.sh]
+    pre --> cross[cross.sh x10] --> cagg[cross_aggregate.sh]
+    pre --> corr[correlation.sh]
+    pre --> dep[dependence.sh]
   end
-  subgraph causal [Causal_analysis]
-    cpre[scripts/causal_analysis/preprocess.sh]
-    cacc[scripts/causal_analysis/access.sh]
-    ccor[scripts/causal_analysis/correlation.sh]
-    cdep[scripts/causal_analysis/dependence.sh]
-    ccross[scripts/causal_analysis/cross.sh]
-    crun[scripts/causal_analysis/run.sh]
+
+  subgraph prompting [prompting, opt-in]
+    pb[prompting/batches.sh] --> ps[prompting/submit.sh x2] --> pc[prompting/classify.sh]
   end
-  dr --> vr
-  dr --> mcalc
-  mcalc --> mtrain
-  mtrain --> magg
-  mcalc --> cpre
-  llm --> cpre
-  cpre --> cacc
-  cpre --> ccor
-  cpre --> cdep
-  cpre --> ccross
-  cacc --> crun
-  ccor --> crun
-  cdep --> crun
-  ccross --> crun
-  gpre --> gnn
-  vr --> sast
-  vr --> llm
-  vr --> gnn
+
+  ds --> ft
+  ds --> pb
+  ds --> sast
+  ds --> calc
+  ft --> pre
+  calc --> pre
+  ag --> corr
+  calc --> train
+  ag -. ended .-> train
+  acc -. ended .-> train
+  cagg -. ended .-> train
+  corr -. ended .-> train
+  dep -. ended .-> train
+  train --> magg
+  iso --> magg
+  loo --> magg
 ```
 
-- `scripts/run.sh` chains `metric_analysis/run.sh` and `causal_analysis/run.sh`.
-- Optional Slurm entrypoints live next to the same scripts (embedded `#SBATCH` headers) or under `scripts/slurm/` (thin wrappers).
+Solid arrows: the later job starts only if the earlier one succeeded. Dotted arrows: `metrics/train.sh` waits until those jobs have ended, because it writes into the model directories they read (see the report, P4).
 
-## Slurm
+## Images and modules
 
-Submit jobs **from the repository root** so `SLURM_SUBMIT_DIR` is the project tree the scripts expect (same as interactive use), e.g.:
+| Image | Modules |
+|-------|---------|
+| `llm.sif` | `dataset.dataset`, `llm.*`, `metrics.calculate`, `causal_analysis.*`, `sast.*`, `prompting.*` |
+| `metrics.sif` | `metrics.train`, `metrics.isolation`, `metrics.leaveoneout`, `metrics.aggregate` |
+| `cpgtools.sif` | `graph.cpgtools.preprocess.parse`, `graph.cpgtools.preprocess.export` |
+| `gnn.sif` | `graph.datasets.primevul` (`preprocess`, `write-sources`, `add-graphs`), `graph.train`, `graph.evaluate`, `graph.collect` |
 
-```bash
-sbatch scripts/slurm/wrapper_example.sbatch
+## Data layout
+
+```
+data/primevul/
+  raw/primevul_{train,valid,test}.jsonl      build.sh
+  hf/                                        dataset.dataset
+  mcpp-<model>/                              metrics.calculate
+    autosklearn-model-{isolation,leaveoneout}/   metrics.isolation, metrics.leaveoneout
+  hf-model/<model>/<uid>/checkpoint-*/       llm.finetune_*; results.json, predictions.json from llm.eval_*
+    .../checkpoint-*/embedded/               llm.add_embeddings
+    autosklearn-model-10min/                 metrics.train
+  <model>/<uid>/checkpoint-*/                llm.add_predictions
+  gnn/{raw,hf,sources,cpg_parsed,cpg_json,hf_graphs,runs/seed-<n>/<gnn>}/
+  sast/
+  prompting/{raw-batches,batches,cache,out}/ prompting.*
+data/primevul-lookaround/                    not created by this repository
+data/pdbert/                                 build.sh
 ```
 
-See `scripts/slurm/wrapper_example.sbatch` for a minimal pattern (`cd "${SLURM_SUBMIT_DIR}"` then call an existing script).
+`<model>` is the Hugging Face id with `/` replaced by `__`; the local PDBERT checkpoint is `data__pdbert`.
+
+## Checks
+
+- `scripts/dev/check_python_frozen.sh` fails if experiment code under `src/` differs from the baseline commit without an approved entry in `scripts/dev/approved_patches.txt`.

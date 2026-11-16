@@ -10,47 +10,50 @@ In our submission we analyze the performance of large language models for vulner
 
 ## Dependencies
 - [Apptainer](https://apptainer.org/) (or Singularity) for containerized runs
-- A CUDA-capable host for LLM finetuning/evaluation and GNN training (CPU-only steps use separate images where noted)
-- Bash; Hugging Face cache configuration via `huggingface.env` (see `scripts/config.sh`)
+- Slurm for the full experiments; a CUDA-capable GPU for LLM finetuning/evaluation and GNN training
+- Bash; Hugging Face cache configuration via `huggingface.env`
 
 ## Environment layout
-Experiments assume the **repository root is the current working directory** (interactive sessions and Slurm jobs). Shell helpers invoke Apptainer with `PYTHONPATH="${PWD}/src"` so the Python packages under `src/` are used **without** installing the repo into each image. The project tree is visible inside the container at the **same paths as on the host** (Apptainer’s default behavior for the process working directory).
+All scripts assume the **repository root is the current working directory**. Every step runs as `python -m <module> ...` inside an Apptainer image with `PYTHONPATH="${PWD}/src"`; the repository is never installed into an image. `scripts/config.sh` holds the shared settings (paths, images, the list of models).
 
-Several **`.def` / `.sif` pairs** cover different stacks, e.g. `container.sif` (LLM + metrics + causal helpers), `auto.sif` (Auto-sklearn metric experiments), `dataset.sif` (light CPU), `gnn-preprocessing.sif` (Joern/CPG), and `gnn-training.sif` (PyTorch/PyG). Build them from the repo root (see [Reproducibility](#reproducibility) for the full list and variables such as `GNN_PREPROCESS_SIF` / `GNN_TRAINING_SIF`).
-
-Individual steps are run as **`python -m <module> ...`** (for example `python -m llm.finetune_bertlike`, `python -m metrics.calculate`). The wrapper `scripts/apptainer_cheetah.sh` loads `scripts/lib/run_in_sif.sh` and defines `_cheetah_run` for use across `scripts/`.
+Four images are built into `.sif/`: `llm.sif` (LLMs, metric extraction, causal analysis), `metrics.sif` (auto-sklearn metric classifiers), `cpgtools.sif` (Joern code property graphs) and `gnn.sif` (GNN training).
 
 ## Quick start
-To build the Apptainer images and run the full scripted pipeline:
 ```
-./scripts/build.sh
-./scripts/run.sh
+git submodule update --init   # SAST tools (or clone with --recurse-submodules)
+./scripts/build.sh   # images, PrimeVul, PDBERT; needs internet access
+./scripts/run.sh     # submits every stage to Slurm with job dependencies
 ```
-The build script in this repository may only compile a **subset** of images by default; enable or add `apptainer build …` lines for every SIF you need (see [docs/reproducibility.md](docs/reproducibility.md)). Configure tokens and cache paths in `huggingface.env` before LLM or dataset steps.
+`./scripts/run.sh <experiment>...` runs only the named experiments (`dataset`, `vulnerability_evaluation`, `metrics`, `causal_analysis`, and the opt-in `prompting`). `slurm=0 ./scripts/run.sh` runs the stages in the current shell, and `DRY_RUN=1 ./scripts/run.sh` prints what would be submitted.
 
 ## Reproducibility
-For **detailed** instructions—image build commands, which `python -m` modules belong to which SIF, Hugging Face and Slurm conventions, and a high-level script dependency graph—see **[docs/reproducibility.md](docs/reproducibility.md)**.
+To run on a different Slurm cluster, see **[CLUSTER_CONFIG.md](CLUSTER_CONFIG.md)** for every script and setting to adapt. See **[docs/reproducibility.md](docs/reproducibility.md)** for the stage graph, the image used by each module and the Slurm conventions, and **[docs/reproduction-report.md](docs/reproduction-report.md)** for known deviations from the setup used in the paper and open issues.
 
 ## Dataset
-We use [PrimeVul](https://doi.ieeecomputersociety.org/10.1109/ICSE55347.2025.00038) as the basis for our experiments. Before running individual stages, obtain the dataset and place it where the scripts expect it (the GNN and preprocessing examples use `data/primevul/raw` with JSONL splits). If you use the automated download path in `scripts/build.sh`, ensure filenames and layout match what `graph.datasets.primevul preprocess` expects, or adapt paths in your copy of the scripts.
+We use [PrimeVul](https://doi.ieeecomputersociety.org/10.1109/ICSE55347.2025.00038) as the basis for our experiments. `scripts/build.sh` downloads the three splits to `data/primevul/raw/primevul_{train,valid,test}.jsonl`.
 
 ## Experiments
-We conduct three experiments in our paper: A comparative assessment of vulnerability discovery approaches, a performance analysis of code metrics for vulnerability discovery, and an analysis of LLM-based discovery approaches through the lens of code metrics. Each of these experiments aligns with one sub-directory in the `scripts` directory. Before conducting any of the experiments, build the relevant Apptainer images, configure the runtime environment, and prepare PrimeVul (see [Dataset](#dataset) and [Reproducibility](#reproducibility)).
+We conduct three experiments in our paper: A comparative assessment of vulnerability discovery approaches, a performance analysis of code metrics for vulnerability discovery, and an analysis of LLM-based discovery approaches through the lens of code metrics. Each of these experiments aligns with one sub-directory in the `scripts` directory. Before conducting any of the experiments, run `./scripts/build.sh` and `./scripts/run.sh dataset`.
 
 #### Comparative analysis of vulnerability discovery approaches
 In our comparative analysis of vulnerability discovery approaches we consider five state-of-the-art LLM-based methods, two graph neural network (GNN) approaches, two static application security testing (SAST) tools and a classifier trained on our 23 syntactic code metrics. The directory `scripts/vulnerability_evaluation` contains the code to train and evaluate these methods on the [PrimeVul](https://doi.ieeecomputersociety.org/10.1109/ICSE55347.2025.00038) dataset.
 
 To conduct this experiment, run:
 ```
-./scripts/vulnerability_evaluation/run.sh
+./scripts/run.sh vulnerability_evaluation
+```
+
+The comparison also prompts GPT-3.5 Turbo and GPT-4o through the OpenAI Batch API on a stratified subset of 2,000 test functions (`scripts/prompting`). This is paid and is not part of a plain `./scripts/run.sh`:
+```
+OPENAI_API_KEY=... ./scripts/run.sh prompting
 ```
 
 #### Performance analysis of code metrics for vulnerability discovery
-We assess the predictive performance of the 23 considered code metrics in a second experiment. To that end, we train a classifier on each metric individually to assess its performance in isolation and train a classifier on every metric but this one, to assess the impact of its absence on the quality of the classifier. The code to start this experiment is contained in the `scripts/metric_analysis` directory.
+We assess the predictive performance of the 23 considered code metrics in a second experiment. To that end, we train a classifier on each metric individually to assess its performance in isolation and train a classifier on every metric but this one, to assess the impact of its absence on the quality of the classifier. The code to start this experiment is contained in the `scripts/metrics` directory.
 
 The experiment can be started by executing:
 ```
-./scripts/metric_analysis/run.sh
+./scripts/run.sh metrics
 ```
 
 #### Analysis of LLM-based vulnerability discovery through the lens of code metrics
@@ -63,5 +66,5 @@ This experiment is located in the `scripts/causal_analysis` directory.
 
 To run the experiment, execute:
 ```
-./scripts/causal_analysis/run.sh
+./scripts/run.sh causal_analysis
 ```

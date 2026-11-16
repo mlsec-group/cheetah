@@ -1,12 +1,12 @@
 import argparse
-import re
 import json
+import re
+from datetime import datetime
 from hashlib import md5
 from pathlib import Path
-from datetime import datetime
 
+from datasets import Dataset, DatasetDict, DatasetInfo, load_dataset, load_from_disk
 from loguru import logger
-from datasets import load_from_disk, Dataset, load_dataset, DatasetDict, DatasetInfo
 from transformers import AutoTokenizer
 
 from graph.node_types import DEFAULT_X_TYPES
@@ -140,7 +140,7 @@ def write_sources(ds_path: Path, output_dir: Path):
 
 
 def add_graphs(ds_path: Path, graph_root: Path, out_path: Path):
-    from graph.datasets.graphs import to_pyg, get_node_type_vocab, has_graph
+    from graph.datasets.graphs import get_node_type_vocab, has_graph, to_pyg
 
     ds, _, _ = load(ds_path)
     node_type_vocab = get_node_type_vocab(ds, graph_root)

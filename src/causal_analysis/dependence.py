@@ -1,50 +1,19 @@
-import torch
 import statistics
+from pathlib import Path
 
 import numpy as np
-
-from pathlib import Path
-from tqdm.auto import tqdm
-from datasets import load_from_disk
-
+import torch
+from datasets import DatasetDict, concatenate_datasets, load_from_disk
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression
-
-
-MAPPING = {
-    "C1": "C1",
-    "C2": "C2",
-    "C3": "C3",
-    "C4": "C4",
-    "V1": "C5",
-    "V3": "M3",
-    "V6": "C6",
-    "V7": "C7",
-    "V8": "C8",
-    "V10": "S5",
-    "x1":  "C9",
-    "x2": "C10",
-    "x3": "C11",
-    "x4": "C12",
-    "t1": "T1",
-    "t2": "T2",
-    "t3": "T3",
-    "s1": "S1",
-    "s2": "S2",
-    "s3": "S3",
-    "s4": "S4",
-    "m1": "M1",
-    "m2": "M2",
-}
-INVERSE_MAPPING = {v: k for k,v in MAPPING.items()}
+from tqdm.auto import tqdm
 
 sorted_relevant_metrics = ['C11', 'T1', 'C6', 'S5', 'C1', 'M2', 'M3', 'C8', 'C2', 'S4', 'C3', 'C4', 'C7', 'T2', 'S1', 'S2', 'C10', 'C12', 'C9', 'M1', 'T3', 'C5', 'S3']
-sorted_relevant_metrics = [INVERSE_MAPPING[k] for k in sorted_relevant_metrics]
 
 
-def load_all(full_path, load_last=False):
+def load_all(full_path, metrics, load_last=False):
     selection_predicate = min
     if load_last:
         selection_predicate = max
@@ -52,7 +21,13 @@ def load_all(full_path, load_last=False):
     for path in full_path.iterdir():
         checkpoints = list(path.iterdir())
         selected_checkpoint = selection_predicate(checkpoints, key=lambda p: int(p.stem.split("checkpoint-")[-1]))
-        results.append(load_from_disk(selected_checkpoint))
+        # llm.add_predictions stores the logits only; the code metrics, idx and
+        # target of the same rows are in the metrics dataset.
+        logits = load_from_disk(selected_checkpoint)
+        results.append(DatasetDict({
+            split: concatenate_datasets([metrics[split], logits[split].select_columns(["logits"])], axis=1)
+            for split in logits
+        }))
         
     return results
 
@@ -111,7 +86,7 @@ def run_dependence_main() -> None:
         "PDBert": dataset_path / "data__pdbert",
         "UniXcoder": dataset_path / "microsoft__unixcoder-base-nine",
         "LineVul": dataset_path / "microsoft__codebert-base",
-        "StarCoder": dataset_path / "Salesforce__codegen25-7b-multi_P",
+        "StarCoder": dataset_path / "bigcode__starcoder2-7b",
         "CodeGen": dataset_path / "Salesforce__codegen25-7b-multi_P",
     }
     BIG_MODELS = ["StarCoder", "CodeGen"]
@@ -120,7 +95,8 @@ def run_dependence_main() -> None:
         # manually checked: early stopping produced better checkpoint for all models
         # except big models, where the last checkpoint was always the best
         # this was verified for all runs
-        name: load_all(path, load_last=name in BIG_MODELS)
+        # metrics of the functions after the round trip through that model's tokenizer
+        name: load_all(path, load_from_disk(dataset_path / f"mcpp-{path.name}"), load_last=name in BIG_MODELS)
         for name, path in model_paths.items()
     }
 
@@ -179,7 +155,7 @@ def run_dependence_main() -> None:
     for name in model_names:
         summed = 0
         for diffed in all_diffs[name]:
-            diff_predictions = torch.as_tensor(diffed["train"]["diff_predictions"] + diffed["val"]["diff_predictions"] + diffed["test"]["diff_predictions"])
+            diff_predictions = torch.as_tensor(list(diffed["train"]["diff_predictions"]) + list(diffed["val"]["diff_predictions"]) + list(diffed["test"]["diff_predictions"]))
             summed += torch.mean(torch.abs(diff_predictions)).item()
         print(name, summed / len(all_results[name]))
 

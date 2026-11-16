@@ -2,13 +2,13 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from sklearn.metrics import (
-    matthews_corrcoef,
     accuracy_score,
+    average_precision_score,
     balanced_accuracy_score,
+    f1_score,
+    matthews_corrcoef,
     precision_score,
     recall_score,
-    f1_score,
-    average_precision_score,
     roc_auc_score,
     roc_curve,
 )

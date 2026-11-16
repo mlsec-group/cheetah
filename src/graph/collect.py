@@ -2,9 +2,8 @@ import argparse
 import json
 from pathlib import Path
 
-import pandas as pd
 import numpy as np
-
+import pandas as pd
 
 TARGET_FILE = "test_results.json"
 
@@ -20,8 +19,6 @@ def collect_results(result_root: Path):
         with open(train_config_path, "r") as f:
             train_config = json.load(f)
 
-        task_id = train_config["task_id"]
-        model_name = train_config["model_name"]
         all_results.append({
             "model_name": train_config["model_name"],
             "task_id": train_config["task_id"],
